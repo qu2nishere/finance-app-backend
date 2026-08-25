@@ -1,0 +1,91 @@
+# ==========================================
+# Backend Git Ignore (Spring Boot / Java / Gradle)
+# ==========================================
+
+# --- Gradle & Build Outputs ---
+.gradle/
+**/.gradle/
+build/
+**/build/
+bin/
+**/bin/
+out/
+**/out/
+target/
+**/target/
+
+# Keep Gradle Wrapper jar
+!gradle/wrapper/gradle-wrapper.jar
+!**/gradle-wrapper.jar
+
+# --- IntelliJ IDEA / Android Studio ---
+.idea/
+**/.idea/
+*.iml
+**/*.iml
+*.iws
+*.ipr
+*.class
+
+# --- Eclipse / STS ---
+.apt_generated/
+.classpath
+.factorypath
+.project
+.settings/
+.springBeans
+.sts4-cache/
+
+# --- VS Code ---
+.vscode/
+**/.vscode/
+
+# --- NetBeans ---
+**/nbproject/private/
+**/nbbuild/
+**/dist/
+**/nbdist/
+**/.nb-gradle/
+
+# --- Logs & Runtime Data ---
+*.log
+**/*.log
+logs/
+**/logs/
+*.pid
+*.seed
+*.pid.lock
+
+# --- Environment & Sensitive Configs ---
+.env
+.env.*
+!.env.example
+application-local.properties
+application-local.yml
+application-local.yaml
+application-secret.properties
+application-secret.yml
+application-secret.yaml
+
+# --- Database & Storage ---
+*.db
+*.sqlite
+*.sqlite3
+data/
+**/data/
+
+# --- OS Specific Files ---
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# --- Temporary & Backup Files ---
+*.tmp
+*.bak
+*.swp
+*~
