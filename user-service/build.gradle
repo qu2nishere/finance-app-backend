@@ -6,7 +6,7 @@ plugins {
 
 group = 'com.quan'
 version = '0.0.1-SNAPSHOT'
-description = 'budget-service'
+description = 'user-service'
 
 java {
     toolchain {
@@ -23,11 +23,20 @@ dependencies {
     implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
     implementation 'org.springframework.boot:spring-boot-starter-validation'
     implementation 'org.springframework.boot:spring-boot-starter-actuator'
-    // Consume ledger events to keep spending_snapshot up to date
+    // Bam mat khau (BCrypt) + bao ve endpoint. Man 8g SecurityScreen.
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    // Gui ma xac thuc email. Man VerifyEmailScreen.
+    implementation 'org.springframework.boot:spring-boot-starter-mail'
+    // Publish UserRegistered / UserDeleted cho cac service khac
     implementation 'org.springframework.boot:spring-boot-starter-amqp'
     implementation 'org.flywaydb:flyway-core'
     runtimeOnly 'org.flywaydb:flyway-database-postgresql'
     runtimeOnly 'org.postgresql:postgresql'
+
+    // Phat hanh + ky JWT. Version phai khai bao tay (Boot khong quan ly jjwt).
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
     compileOnly 'org.projectlombok:lombok'
     annotationProcessor 'org.projectlombok:lombok'
@@ -37,6 +46,7 @@ dependencies {
     testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-validation-test'
     testImplementation 'org.springframework.boot:spring-boot-starter-amqp-test'
+    testImplementation 'org.springframework.security:spring-security-test'
     testCompileOnly 'org.projectlombok:lombok'
     testAnnotationProcessor 'org.projectlombok:lombok'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
