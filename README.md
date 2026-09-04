@@ -47,8 +47,13 @@ Chạy lẻ một service trong IntelliJ: default trong `application.properties`
 3. **Tiền lưu `BIGINT`, đơn vị đồng.** Không bao giờ dùng `float`/`double`. Frontend đã
    dùng `Long` — giữ nguyên suốt cả stack.
 
+## Schema
+
+Thiết kế đầy đủ 4 database — từng bảng, từng cột, index, enum, seed và hợp đồng event —
+nằm ở [`DATABASE.md`](DATABASE.md). Đọc file đó trước khi viết migration đầu tiên.
+
 ## Còn thiếu
 
-Chưa có entity, repository, controller, migration nào — mới chỉ là khung. Bước tiếp
-theo là thiết kế schema từng service + event contract (`TransactionCreated`,
-`TransactionDeleted`, `WalletBalanceChanged`, `UserRegistered`).
+Chưa có entity, repository, controller, migration nào — mới chỉ là khung. Schema đã thiết
+kế xong trên giấy (`DATABASE.md`); bước tiếp theo là hiện thực hoá thành Flyway migration
+`V1__init_schema.sql` của từng service, theo checklist ở cuối file đó.

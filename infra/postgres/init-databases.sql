@@ -27,3 +27,23 @@ GRANT CONNECT ON DATABASE user_db   TO user_db;
 GRANT CONNECT ON DATABASE ledger_db TO ledger_db;
 GRANT CONNECT ON DATABASE budget_db TO budget_db;
 GRANT CONNECT ON DATABASE report_db TO report_db;
+
+-- ---------------------------------------------------------------------------
+-- Extension phai tao TRONG TUNG DATABASE, boi superuser (postgres).
+-- Flyway chay bang role rieng cua service nen khong dat o migration duoc.
+-- ---------------------------------------------------------------------------
+
+\connect user_db
+CREATE EXTENSION IF NOT EXISTS pgcrypto;   -- gen_random_uuid()
+CREATE EXTENSION IF NOT EXISTS citext;     -- email khong phan biet hoa thuong
+
+\connect ledger_db
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS unaccent;   -- tim ghi chu tieng Viet khong dau
+CREATE EXTENSION IF NOT EXISTS pg_trgm;    -- ILIKE '%...%' tren note/merchant
+
+\connect budget_db
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+\connect report_db
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
