@@ -89,3 +89,16 @@ Desktop.ini
 *.bak
 *.swp
 *~
+
+# --- Spring Boot config (co the chua secret) — KHONG commit ---
+application.properties
+application-*.properties
+application.yml
+application-*.yml
+application.yaml
+application-*.yaml
+
+# Giu lai file mau de dev biet can dien nhung key nao
+!application.properties.example
+!application-*.properties.example
+!application.yml.example

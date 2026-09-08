@@ -1,0 +1,22 @@
+spring.application.name=budget-service
+server.port=${SERVER_PORT:8083}
+
+# --- Database rieng cua budget-service ---
+# Khong service nao duoc doc bang cua service khac. Muon du lieu -> goi API hoac nghe event.
+spring.datasource.url=${DB_URL:jdbc:postgresql://localhost:5432/budget_db}
+spring.datasource.username=${DB_USER:budget_db}
+spring.datasource.password=${DB_PASSWORD:budget_db}
+
+# Flyway so huu schema; Hibernate chi duoc validate, khong tu sua bang.
+spring.jpa.hibernate.ddl-auto=validate
+spring.jpa.open-in-view=false
+spring.flyway.enabled=true
+
+# --- RabbitMQ (giao tiep bat dong bo giua cac service) ---
+spring.rabbitmq.host=${RABBITMQ_HOST:localhost}
+spring.rabbitmq.port=${RABBITMQ_PORT:5672}
+spring.rabbitmq.username=${RABBITMQ_USER:guest}
+spring.rabbitmq.password=${RABBITMQ_PASSWORD:guest}
+app.events.exchange=finance.events
+
+management.endpoints.web.exposure.include=health,info

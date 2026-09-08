@@ -35,3 +35,13 @@ out/
 
 ### VS Code ###
 .vscode/
+
+### Spring Boot config (co the chua secret) - KHONG commit ###
+application.properties
+application-*.properties
+application.yml
+application-*.yml
+application.yaml
+application-*.yaml
+!application.properties.example
+!application-*.properties.example
