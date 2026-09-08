@@ -20,7 +20,7 @@ public class User{
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @Column(nullable = false)
+    @Column(name = "email", nullable = false, columnDefinition = "citext")
     private String email;
 
     @Column(name = "email_verified", nullable = false)
@@ -46,10 +46,10 @@ public class User{
     private UserStatus status = UserStatus.ACTIVE;
 
     @Column(nullable = false)
-    private String locale;
+    private String locale = "vi-VN";
 
     @Column(nullable = false) 
-    private String timezone;
+    private String timezone = "Asia/Ho_Chi_Minh";
 
     @Column(name = "onboarding_completed", nullable = false)
     private boolean onboardingCompleted;
@@ -62,7 +62,7 @@ public class User{
     private Instant createdAt;
 
     @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
+    @Column(name = "updated_at", nullable = false, updatable = false)
     private Instant updatedAt;
     
     @Column(name = "deleted_at")
