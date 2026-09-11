@@ -33,3 +33,4 @@ spring.mail.properties.mail.smtp.auth=true
 spring.mail.properties.mail.smtp.starttls.enable=true
 
 management.endpoints.web.exposure.include=health,info
+management.health.mail.enabled=false
