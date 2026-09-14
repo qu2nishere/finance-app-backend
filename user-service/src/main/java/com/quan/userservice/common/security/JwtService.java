@@ -56,4 +56,8 @@ public class JwtService{
             return false;
         }
     }
+
+    public long getAccessTokenTtlSeconds(){
+        return accessTokenTtl.toSeconds();
+    }
 }
