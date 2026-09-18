@@ -1,6 +1,8 @@
+package com.quan.userservice.auth;
+
 import com.quan.userservice.auth.dto.AuthResponse;
 import com.quan.userservice.auth.dto.RegisterRequest;
-import com.quan.userservice.auth.AuthService;
+import com.quan.userservice.auth.dto.LoginRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -17,5 +19,10 @@ public class AuthController{
     @ResponseStatus(HttpStatus.CREATED)
     public AuthResponse register(@Valid @RequestBody RegisterRequest request){
         return authService.register(request);
+    }
+
+    @PostMapping("/login")
+    public AuthResponse login(@Valid @RequestBody LoginRequest request){
+        return authService.login(request);
     }
 }

@@ -1,6 +1,10 @@
 package com.quan.userservice.common.exception;
 
 import com.quan.userservice.auth.EmailAlreadyUsedException;
+import com.quan.userservice.auth.AccountDisabledException;
+import com.quan.userservice.auth.AccountLockedException;
+import com.quan.userservice.auth.InvalidCredentialsException;
+
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.validation.FieldError;
@@ -31,5 +35,25 @@ public class GlobalExceptionHandler{
     @ExceptionHandler(EmailAlreadyUsedException.class)
     public ProblemDetail handleEmailUsed(EmailAlreadyUsedException ex){
         return ProblemDetail.forStatusAndDetail(HttpStatus.CONFLICT, ex.getMessage());
+    }
+    
+    // 401 — sai thong tin dang nhap
+    @ExceptionHandler(InvalidCredentialsException.class)
+    public ProblemDetail handleInvalidCredentials(InvalidCredentialsException ex){
+        return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    // 423 — tam khoa
+    @ExceptionHandler(AccountLockedException.class)
+    public ProblemDetail handleLocked(AccountLockedException ex){
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.LOCKED, ex.getMessage());
+        pd.setProperty("lockedUntil", ex.getLockedUntil());
+        return pd;
+    }
+
+    // 403 — tai khoan bi vo hieu hoa
+    @ExceptionHandler(AccountDisabledException.class)
+    public ProblemDetail handleDisabled(AccountDisabledException ex){
+        return ProblemDetail.forStatusAndDetail(HttpStatus.FORBIDDEN, ex.getMessage());
     }
 }
