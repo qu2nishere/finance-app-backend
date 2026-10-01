@@ -53,6 +53,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chua duoc dat - xem .env.example}
       MAIL_USER: ${MAIL_USER:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     depends_on:
       postgres: { condition: service_healthy }
       rabbitmq: { condition: service_healthy }

@@ -1,9 +1,9 @@
 package com.quan.userservice.common.exception;
 
-import com.quan.userservice.auth.EmailAlreadyUsedException;
-import com.quan.userservice.auth.AccountDisabledException;
-import com.quan.userservice.auth.AccountLockedException;
-import com.quan.userservice.auth.InvalidCredentialsException;
+import com.quan.userservice.auth.exception.EmailAlreadyUsedException;
+import com.quan.userservice.auth.exception.AccountDisabledException;
+import com.quan.userservice.auth.exception.AccountLockedException;
+import com.quan.userservice.auth.exception.InvalidCredentialsException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;

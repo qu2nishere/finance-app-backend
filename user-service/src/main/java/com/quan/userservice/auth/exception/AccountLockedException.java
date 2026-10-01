@@ -1,4 +1,4 @@
-package com.quan.userservice.auth;
+package com.quan.userservice.auth.exception;
 
 import java.time.Instant;
 // AccountLockedException.java — 423

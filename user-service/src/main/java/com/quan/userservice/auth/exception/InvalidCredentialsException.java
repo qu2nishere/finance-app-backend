@@ -1,4 +1,4 @@
-package com.quan.userservice.auth;
+package com.quan.userservice.auth.exception;
 
 public class InvalidCredentialsException extends RuntimeException{
     public InvalidCredentialsException(){
