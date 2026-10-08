@@ -5,6 +5,33 @@
 
 ---
 
+## 0. Implementation Rules
+
+Before making any changes:
+
+1. Inspect the existing project structure.
+2. Inspect existing:
+   - AuthController
+   - AuthService
+   - SecurityConfig
+   - User entity
+   - UserRepository
+   - UserSettings
+   - NotificationSettings
+   - AuthResponse
+   - JWT/JwtService
+   - database migration V1__init_schema.sql
+   - API Gateway routing
+   - Android AuthViewModel
+   - Retrofit configuration
+   - existing authentication flow
+
+3. Reuse existing architecture and conventions.
+4. Do NOT create duplicate classes/services if an equivalent already exists.
+5. Do NOT change unrelated authentication behavior.
+6. Do NOT modify database schema unless absolutely necessary.
+7. If the existing implementation conflicts with this plan, explain the conflict before choosing a solution.
+
 ## 1. Tổng quan & Luồng xác thực (Authentication Flow)
 
 ### 1.1. Nguyên tắc bảo mật
@@ -433,25 +460,65 @@ OutlinedButton(
 
 ## 6. Danh sách công việc triển khai (Checklist)
 
-- [x] **Bước 1: Google Cloud Console**
-  - [ ] Tạo Web Client ID & Android Client ID trên Google Cloud Console (User thực hiện).
-  - [x] Lấy SHA-1 debug keystore: `CF:3B:5A:03:79:37:77:49:EB:B3:0F:DD:D4:6D:7D:05:4C:C2:E6:3D`.
-  - [x] Cấu hình Web Client ID vào biến môi trường Backend (`google.client-id`) & Mobile (`SERVER_WEB_CLIENT_ID`).
-- [x] **Bước 2: Backend `user-service`**
-  - [x] Thêm dependency `google-api-client` & `google-http-client-gson` vào `build.gradle`.
-  - [x] Tạo `UserIdentity.java` & `UserIdentityRepository.java`.
-  - [x] Tạo `GoogleLoginRequest.java`.
-  - [x] Tạo `GoogleTokenVerifierService.java`.
-  - [x] Thêm logic `loginWithGoogle` vào `AuthService.java`.
-  - [x] Expose endpoint `POST /api/v1/auth/google` trong `AuthController.java`.
-  - [x] Cập nhật `SecurityConfig.java` cho phép `/api/v1/auth/**`.
-  - [x] Cập nhật Gateway Nginx điều hướng `/api/v1/auth/**`.
-  - [x] Build và kiểm thử compile với `.\gradlew.bat compileJava` (Build Thành công).
-- [x] **Bước 3: Android Client**
-  - [x] Thêm Credential Manager vào `app/build.gradle.kts`.
-  - [x] Tạo vector drawable chuẩn Google 4 màu `ic_google.xml`.
-  - [x] Viết hàm gọi Google Sign-In trong `AuthViewModel`.
-  - [x] Gắn API Retrofit gọi endpoint `POST /api/v1/auth/google` qua `AuthApi` & `AuthRepository`.
-  - [x] Hiển thị nút "Google" trên cả `LoginScreen` & `RegisterScreen`.
-  - [x] Kết nối context và trigger Google Sign-In từ `MainActivity.kt`.
-  - [x] Build và kiểm thử compile với `.\gradlew.bat compileDebugKotlin` (Build Thành công).
+- [ ] **Bước 1: Google Cloud Console**
+  - [ ] Tạo Web Client ID & Android Client ID.
+  - [ ] Lấy SHA-1 debug keystore thêm vào Android Client ID.
+  - [ ] Lưu Web Client ID vào biến môi trường Backend & Mobile.
+- [ ] **Bước 2: Backend `user-service`**
+  - [ ] Thêm dependency `google-api-client` vào `build.gradle`.
+  - [ ] Tạo `UserIdentity.java` & `UserIdentityRepository.java`.
+  - [ ] Tạo `GoogleLoginRequest.java`.
+  - [ ] Tạo `GoogleTokenVerifierService.java`.
+  - [ ] Thêm logic `loginWithGoogle` vào `AuthService.java`.
+  - [ ] Expose endpoint `POST /api/v1/auth/google` trong `AuthController.java`.
+  - [ ] Cập nhật `SecurityConfig.java` cho phép `/api/v1/auth/**`.
+  - [ ] Build và kiểm thử compile với `.\gradlew.bat compileJava`.
+- [ ] **Bước 3: Android Client**
+  - [ ] Thêm Credential Manager vào `app/build.gradle.kts`.
+  - [ ] Viết hàm gọi Google Sign-In trong `AuthViewModel`.
+  - [ ] Gắn API Retrofit gọi endpoint `POST /api/v1/auth/google`.
+  - [ ] Hiển thị nút "Tiếp tục với Google" trên `LoginScreen` & `RegisterScreen`.
+  - [ ] Test trực tiếp trên Android Emulator / Thiết bị thật.
+
+## 7. Acceptance Criteria
+
+The implementation is considered complete only when all conditions below are satisfied.
+
+### Backend
+
+- [ ] `POST /api/v1/auth/google` accepts a Google ID Token.
+- [ ] Invalid token returns HTTP 401.
+- [ ] Expired token returns HTTP 401.
+- [ ] Wrong audience returns HTTP 401.
+- [ ] Invalid issuer returns HTTP 401.
+- [ ] `email_verified != true` cannot be used for account linking.
+- [ ] Existing Google identity logs the existing user in.
+- [ ] Existing password account with verified Google email is linked.
+- [ ] New Google user is automatically created.
+- [ ] Disabled user cannot log in.
+- [ ] Google `sub` is stored as `provider_user_id`.
+- [ ] Internal JWT is generated after successful authentication.
+- [ ] Existing password login continues to work.
+- [ ] Existing authentication endpoints are not broken.
+
+### Android
+
+- [ ] Google account picker opens successfully.
+- [ ] Google ID Token is obtained.
+- [ ] Token is sent to `/api/v1/auth/google`.
+- [ ] Internal access token is stored using the existing secure token storage.
+- [ ] Successful login navigates to the existing authenticated screen.
+- [ ] User cancellation does not crash the app.
+- [ ] Backend 401/403/400 errors are displayed through the existing UI state mechanism.
+
+### Testing
+
+- [ ] New Google account
+- [ ] Existing Google account
+- [ ] Existing password account
+- [ ] Invalid ID token
+- [ ] Expired ID token
+- [ ] Wrong audience
+- [ ] Disabled account
+- [ ] User cancels Google login
+- [ ] Network error

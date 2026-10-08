@@ -31,7 +31,7 @@ public class UserIdentity {
     @Column(name = "provider_user_id", nullable = false)
     private String providerUserId;
 
-    @Column(name = "email")
+    @Column(name = "email", columnDefinition = "citext")
     private String email;
 
     @Column(name = "email_verified", nullable = false)
