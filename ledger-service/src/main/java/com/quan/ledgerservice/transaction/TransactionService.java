@@ -3,12 +3,12 @@ package com.quan.ledgerservice.transaction;
 import com.quan.ledgerservice.category.Category;
 import com.quan.ledgerservice.category.CategoryFlow;
 import com.quan.ledgerservice.category.CategoryRepository;
-import com.quan.ledgerservice.common.exception.InvalidRequestException;
 import com.quan.ledgerservice.common.exception.ResourceNotFoundException;
 import com.quan.ledgerservice.transaction.dto.CreateTransactionRequest;
 import com.quan.ledgerservice.transaction.dto.MonthlySummaryResponse;
 import com.quan.ledgerservice.transaction.dto.TransactionResponse;
 import com.quan.ledgerservice.wallet.Wallet;
+import com.quan.ledgerservice.wallet.WalletKind;
 import com.quan.ledgerservice.wallet.WalletRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -20,6 +20,7 @@ import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -36,26 +37,51 @@ public class TransactionService {
 
     @Transactional
     public TransactionResponse create(UUID userId, CreateTransactionRequest request) {
-        // 1. Vi phai ton tai va thuoc ve user
-        Wallet wallet = walletRepository.findByIdAndUserIdAndDeletedAtIsNull(request.walletId(), userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ví hợp lệ"));
+        // 1. Ví: tìm theo walletId của user, nếu chưa có thì lấy ví đầu tiên hoặc tự tạo ví mặc định "Tiền mặt"
+        Wallet wallet = null;
+        if (request.walletId() != null) {
+            wallet = walletRepository.findByIdAndUserIdAndDeletedAtIsNull(request.walletId(), userId)
+                    .orElse(null);
+        }
 
-        // 2. Danh muc (neu co) phai nhin thay duoc va dung chieu thu/chi
+        if (wallet == null) {
+            List<Wallet> userWallets = walletRepository.findByUserIdAndDeletedAtIsNullOrderByDisplayOrderAsc(userId);
+            if (!userWallets.isEmpty()) {
+                wallet = userWallets.get(0);
+            } else {
+                Wallet defaultWallet = new Wallet();
+                defaultWallet.setUserId(userId);
+                defaultWallet.setName("Tiền mặt");
+                defaultWallet.setKind(WalletKind.CASH);
+                defaultWallet.setCurrencyCode("VND");
+                defaultWallet.setInitialBalance(0);
+                defaultWallet.setCurrentBalance(0);
+                defaultWallet.setIcon("AccountBalanceWallet");
+                defaultWallet.setColor("#2563EB");
+                defaultWallet.setIncludeInTotal(true);
+                defaultWallet.setDisplayOrder((short) 1);
+                wallet = walletRepository.save(defaultWallet);
+            }
+        }
+
+        // 2. Danh mục: tìm theo categoryId, nếu không khớp thì tự lấy danh mục mặc định phù hợp với loại thu/chi
         Category category = null;
         if (request.categoryId() != null) {
             category = categoryRepository.findByIdAndDeletedAtIsNull(request.categoryId())
                     .filter(c -> c.getUserId() == null || c.getUserId().equals(userId))
-                    .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy danh mục hợp lệ"));
-
-            if (request.type() == TransactionType.EXPENSE && category.getFlow() != CategoryFlow.EXPENSE) {
-                throw new InvalidRequestException("Danh mục này không dành cho khoản chi");
-            }
-            if (request.type() == TransactionType.INCOME && category.getFlow() != CategoryFlow.INCOME) {
-                throw new InvalidRequestException("Danh mục này không dành cho khoản thu");
-            }
+                    .orElse(null);
         }
 
-        // 3. Tinh signed_amount va luu giao dich
+        if (category == null) {
+            CategoryFlow expectedFlow = request.type() == TransactionType.EXPENSE ? CategoryFlow.EXPENSE : CategoryFlow.INCOME;
+            category = categoryRepository.findVisible(userId)
+                    .stream()
+                    .filter(c -> c.getFlow() == expectedFlow)
+                    .findFirst()
+                    .orElse(null);
+        }
+
+        // 3. Tính signed_amount và lưu giao dịch
         long signedAmount = request.amount() * request.type().sign();
 
         Transaction txn = new Transaction();
@@ -75,10 +101,10 @@ public class TransactionService {
 
         Transaction saved = transactionRepository.save(txn);
 
-        // 4. Cong/tru so du vi trong cung mot database transaction
+        // 4. Cộng/trừ số dư ví trong cùng một database transaction
         wallet.setCurrentBalance(wallet.getCurrentBalance() + signedAmount);
 
-        // 5. Tang luot dung danh muc de uu tien hien thi
+        // 5. Tăng lượt dùng danh mục để ưu tiên hiển thị
         if (category != null) {
             category.setUsageCount(category.getUsageCount() + 1);
         }
@@ -94,7 +120,7 @@ public class TransactionService {
         Wallet wallet = walletRepository.findByIdAndUserIdAndDeletedAtIsNull(txn.getWalletId(), userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ví tương ứng"));
 
-        // Hoan lai so du vi
+        // Hoàn lại số dư ví
         wallet.setCurrentBalance(wallet.getCurrentBalance() - txn.getSignedAmount());
         txn.setDeletedAt(Instant.now());
     }
