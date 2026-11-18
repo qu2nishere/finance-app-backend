@@ -1199,6 +1199,8 @@ CREATE TABLE fact_transactions (
     category_id          UUID,
     category_name        VARCHAR(100),
     category_flow        VARCHAR(10),
+    category_icon        VARCHAR(50),               -- V2__add_fact_category_visuals.sql
+    category_color       CHAR(7),                   -- V2__add_fact_category_visuals.sql
     parent_category_id   UUID,
     parent_category_name VARCHAR(100),
     wallet_id            UUID         NOT NULL,
@@ -1221,6 +1223,9 @@ CREATE INDEX idx_fact_user_cat   ON fact_transactions (user_id, year_month, cate
 CREATE INDEX idx_fact_user_wallet ON fact_transactions (user_id, year_month, wallet_id)
     WHERE is_deleted = false AND is_excluded = false;
 ```
+
+> `category_icon`, `category_color` thêm ở `V2__add_fact_category_visuals.sql`, lấy từ `TransactionCreated.payload` (§9) để API `/api/stats/*` trả icon/màu danh mục mà không JOIN `dim_category`.
+> Chỉ dòng `type IN ('INCOME','EXPENSE')` được cộng vào `agg_*`; dòng `category_id IS NULL` vẫn vào `agg_monthly_summary` nhưng không vào `agg_monthly_category`.
 
 ### 8.3 Bảng tổng hợp (aggregate) — dựng sẵn cho từng tab
 
