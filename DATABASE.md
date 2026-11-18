@@ -872,6 +872,8 @@ CREATE TABLE processed_events (
 );
 ```
 
+> **Backfill giao dịch cũ (`V3__backfill_transaction_outbox.sql`):** các giao dịch tạo trước khi bật Outbox được chèn bù một dòng `TransactionCreated` (nguyên `EventEnvelope` JSONB) vào `outbox_events` với điều kiện `deleted_at IS NULL` và chưa có dòng tương ứng, để `OutboxPublisher` tự đồng bộ sang `report_db` mà không vi phạm ranh giới database.
+
 ---
 
 ## 7. `budget_db` — budget-service
@@ -1367,7 +1369,7 @@ Exchange: `finance.events` (topic) — đã cấu hình sẵn qua `app.events.ex
 | `user.deleted` | user | tất cả | `userId` |
 | `transaction.created` | ledger | budget, report | xem bên dưới |
 | `transaction.updated` | ledger | budget, report | như trên + `previousAmount`, `previousCategoryId` |
-| `transaction.deleted` | ledger | budget, report | `transactionId`, `userId`, `amount`, `categoryId`, `occurredAt` |
+| `transaction.deleted` | ledger | budget, report | `transactionId`, `userId`, `walletId`, `categoryId`, `type`, `amount`, `signedAmount`, `occurredAt`, `occurredDate`, `isExcludedFromReport` |
 | `wallet.created` / `wallet.updated` | ledger | report | `walletId`, `userId`, `name`, `kind`, `color` |
 | `wallet.balance.changed` | ledger | budget, report | `walletId`, `userId`, `newBalance`, `delta`, `changedAt` |
 | `category.created` / `category.updated` | ledger | budget, report | `categoryId`, `userId`, `name`, `flow`, `icon`, `color`, `parentId` |
@@ -1402,12 +1404,24 @@ gặp lỗi trùng khoá thì bỏ qua event. Đây là lý do consumer **an to�
   "transactionId": "…",
   "walletId": "…", "walletName": "Ví Momo", "walletKind": "EWALLET",
   "categoryId": "…", "categoryName": "Ăn uống", "categoryFlow": "EXPENSE",
+  "categoryIcon": "Storefront", "categoryColor": "#EF4444",
   "parentCategoryId": null, "parentCategoryName": null,
   "type": "EXPENSE",
   "amount": 72000, "signedAmount": -72000, "currencyCode": "VND",
   "occurredAt": "2026-08-22T09:12:00Z", "occurredDate": "2026-08-22",
   "merchant": "Highlands Coffee", "note": "Cà phê sáng với team dự án",
   "source": "NOTIFICATION", "isExcludedFromReport": false
+}
+```
+
+### `TransactionDeleted.payload`
+
+```json
+{
+  "transactionId": "…", "userId": "…", "walletId": "…", "categoryId": "…",
+  "type": "EXPENSE", "amount": 72000, "signedAmount": -72000,
+  "occurredAt": "2026-08-22T09:12:00Z", "occurredDate": "2026-08-22",
+  "isExcludedFromReport": false
 }
 ```
 
