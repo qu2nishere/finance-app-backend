@@ -3,6 +3,7 @@ package com.quan.ledgerservice.transaction;
 import com.quan.ledgerservice.category.Category;
 import com.quan.ledgerservice.category.CategoryFlow;
 import com.quan.ledgerservice.category.CategoryRepository;
+import com.quan.ledgerservice.common.event.EventPublisher;
 import com.quan.ledgerservice.common.exception.ResourceNotFoundException;
 import com.quan.ledgerservice.transaction.dto.CreateTransactionRequest;
 import com.quan.ledgerservice.transaction.dto.MonthlySummaryResponse;
@@ -32,6 +33,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private final WalletRepository walletRepository;
     private final CategoryRepository categoryRepository;
+    private final EventPublisher eventPublisher;
 
     private static final ZoneId USER_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
@@ -72,12 +74,18 @@ public class TransactionService {
                     .orElse(null);
         }
 
-        if (category == null) {
+        if (category == null && (request.type() == TransactionType.EXPENSE || request.type() == TransactionType.INCOME)) {
             CategoryFlow expectedFlow = request.type() == TransactionType.EXPENSE ? CategoryFlow.EXPENSE : CategoryFlow.INCOME;
             category = categoryRepository.findVisible(userId)
                     .stream()
                     .filter(c -> c.getFlow() == expectedFlow)
                     .findFirst()
+                    .orElse(null);
+        }
+
+        Category parentCategory = null;
+        if (category != null && category.getParentId() != null) {
+            parentCategory = categoryRepository.findByIdAndDeletedAtIsNull(category.getParentId())
                     .orElse(null);
         }
 
@@ -109,6 +117,37 @@ public class TransactionService {
             category.setUsageCount(category.getUsageCount() + 1);
         }
 
+        // 6. Ghi outbox event trong cung transaction de report-service/budget-service dong bo
+        eventPublisher.publish(
+                "TRANSACTION",
+                saved.getId(),
+                "TransactionCreated",
+                userId,
+                new TransactionCreatedPayload(
+                        saved.getId(),
+                        wallet.getId(),
+                        wallet.getName(),
+                        wallet.getKind(),
+                        category != null ? category.getId() : null,
+                        category != null ? category.getName() : null,
+                        category != null ? category.getFlow() : null,
+                        category != null ? category.getIcon() : null,
+                        category != null && category.getColor() != null ? category.getColor().trim() : null,
+                        parentCategory != null ? parentCategory.getId() : null,
+                        parentCategory != null ? parentCategory.getName() : null,
+                        saved.getType(),
+                        saved.getAmount(),
+                        saved.getSignedAmount(),
+                        saved.getCurrencyCode() != null ? saved.getCurrencyCode().trim() : "VND",
+                        saved.getOccurredAt(),
+                        saved.getOccurredDate(),
+                        saved.getMerchant(),
+                        saved.getNote(),
+                        saved.getSource(),
+                        saved.isExcludedFromReport()
+                )
+        );
+
         return TransactionResponse.from(saved, wallet, category);
     }
 
@@ -123,6 +162,25 @@ public class TransactionService {
         // Hoàn lại số dư ví
         wallet.setCurrentBalance(wallet.getCurrentBalance() - txn.getSignedAmount());
         txn.setDeletedAt(Instant.now());
+
+        eventPublisher.publish(
+                "TRANSACTION",
+                txn.getId(),
+                "TransactionDeleted",
+                userId,
+                new TransactionDeletedPayload(
+                        txn.getId(),
+                        userId,
+                        txn.getWalletId(),
+                        txn.getCategoryId(),
+                        txn.getType(),
+                        txn.getAmount(),
+                        txn.getSignedAmount(),
+                        txn.getOccurredAt(),
+                        txn.getOccurredDate(),
+                        txn.isExcludedFromReport()
+                )
+        );
     }
 
     @Transactional(readOnly = true)

@@ -872,6 +872,8 @@ CREATE TABLE processed_events (
 );
 ```
 
+> **Backfill giao dịch cũ (`V3__backfill_transaction_outbox.sql`):** các giao dịch tạo trước khi bật Outbox được chèn bù một dòng `TransactionCreated` (nguyên `EventEnvelope` JSONB) vào `outbox_events` với điều kiện `deleted_at IS NULL` và chưa có dòng tương ứng, để `OutboxPublisher` tự đồng bộ sang `report_db` mà không vi phạm ranh giới database.
+
 ---
 
 ## 7. `budget_db` — budget-service
@@ -1197,6 +1199,8 @@ CREATE TABLE fact_transactions (
     category_id          UUID,
     category_name        VARCHAR(100),
     category_flow        VARCHAR(10),
+    category_icon        VARCHAR(50),               -- V2__add_fact_category_visuals.sql
+    category_color       CHAR(7),                   -- V2__add_fact_category_visuals.sql
     parent_category_id   UUID,
     parent_category_name VARCHAR(100),
     wallet_id            UUID         NOT NULL,
@@ -1219,6 +1223,9 @@ CREATE INDEX idx_fact_user_cat   ON fact_transactions (user_id, year_month, cate
 CREATE INDEX idx_fact_user_wallet ON fact_transactions (user_id, year_month, wallet_id)
     WHERE is_deleted = false AND is_excluded = false;
 ```
+
+> `category_icon`, `category_color` thêm ở `V2__add_fact_category_visuals.sql`, lấy từ `TransactionCreated.payload` (§9) để API `/api/stats/*` trả icon/màu danh mục mà không JOIN `dim_category`.
+> Chỉ dòng `type IN ('INCOME','EXPENSE')` được cộng vào `agg_*`; dòng `category_id IS NULL` vẫn vào `agg_monthly_summary` nhưng không vào `agg_monthly_category`.
 
 ### 8.3 Bảng tổng hợp (aggregate) — dựng sẵn cho từng tab
 
@@ -1367,7 +1374,7 @@ Exchange: `finance.events` (topic) — đã cấu hình sẵn qua `app.events.ex
 | `user.deleted` | user | tất cả | `userId` |
 | `transaction.created` | ledger | budget, report | xem bên dưới |
 | `transaction.updated` | ledger | budget, report | như trên + `previousAmount`, `previousCategoryId` |
-| `transaction.deleted` | ledger | budget, report | `transactionId`, `userId`, `amount`, `categoryId`, `occurredAt` |
+| `transaction.deleted` | ledger | budget, report | `transactionId`, `userId`, `walletId`, `categoryId`, `type`, `amount`, `signedAmount`, `occurredAt`, `occurredDate`, `isExcludedFromReport` |
 | `wallet.created` / `wallet.updated` | ledger | report | `walletId`, `userId`, `name`, `kind`, `color` |
 | `wallet.balance.changed` | ledger | budget, report | `walletId`, `userId`, `newBalance`, `delta`, `changedAt` |
 | `category.created` / `category.updated` | ledger | budget, report | `categoryId`, `userId`, `name`, `flow`, `icon`, `color`, `parentId` |
@@ -1402,12 +1409,24 @@ gặp lỗi trùng khoá thì bỏ qua event. Đây là lý do consumer **an to�
   "transactionId": "…",
   "walletId": "…", "walletName": "Ví Momo", "walletKind": "EWALLET",
   "categoryId": "…", "categoryName": "Ăn uống", "categoryFlow": "EXPENSE",
+  "categoryIcon": "Storefront", "categoryColor": "#EF4444",
   "parentCategoryId": null, "parentCategoryName": null,
   "type": "EXPENSE",
   "amount": 72000, "signedAmount": -72000, "currencyCode": "VND",
   "occurredAt": "2026-08-22T09:12:00Z", "occurredDate": "2026-08-22",
   "merchant": "Highlands Coffee", "note": "Cà phê sáng với team dự án",
   "source": "NOTIFICATION", "isExcludedFromReport": false
+}
+```
+
+### `TransactionDeleted.payload`
+
+```json
+{
+  "transactionId": "…", "userId": "…", "walletId": "…", "categoryId": "…",
+  "type": "EXPENSE", "amount": 72000, "signedAmount": -72000,
+  "occurredAt": "2026-08-22T09:12:00Z", "occurredDate": "2026-08-22",
+  "isExcludedFromReport": false
 }
 ```
 
