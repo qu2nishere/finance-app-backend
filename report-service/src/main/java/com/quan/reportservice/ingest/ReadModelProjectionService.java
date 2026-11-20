@@ -45,6 +45,7 @@ public class ReadModelProjectionService {
     private final ProcessedEventRepository processedEventRepository;
     private final DeadLetterEventRepository deadLetterEventRepository;
     private final FactTransactionRepository factTransactionRepository;
+    private final DimWalletRepository dimWalletRepository;
     private final AggMonthlySummaryRepository aggMonthlySummaryRepository;
     private final AggMonthlyCategoryRepository aggMonthlyCategoryRepository;
     private final AggDailyRepository aggDailyRepository;
@@ -66,6 +67,7 @@ public class ReadModelProjectionService {
         processedEventRepository.save(new ProcessedEvent(eventId, eventType, aggregateId));
 
         switch (eventType) {
+            case "WalletCreated" -> handleWalletCreated(userId, payload);
             case "TransactionCreated" -> handleTransactionCreated(userId, payload);
             case "TransactionDeleted" -> handleTransactionDeleted(userId, payload);
             default -> log.debug("Bo qua event chua can xu ly o report-service: {}", eventType);
@@ -81,6 +83,41 @@ public class ReadModelProjectionService {
         dlq.setError(error != null ? error : "Unknown consumer error");
         dlq.setAttempts((short) Math.max(1, attempts));
         deadLetterEventRepository.save(dlq);
+    }
+
+    private void handleWalletCreated(UUID envelopeUserId, JsonNode payload) {
+        UUID walletId = requiredUuid(payload, "walletId");
+        UUID userId = envelopeUserId != null ? envelopeUserId : requiredUuid(payload, "userId");
+
+        DimWallet wallet = dimWalletRepository.findById(walletId).orElseGet(DimWallet::new);
+        wallet.setWalletId(walletId);
+        wallet.setUserId(userId);
+        wallet.setName(optionalTextOrDefault(payload, "name", "Ví"));
+        wallet.setKind(optionalTextOrDefault(payload, "kind", "CASH"));
+        wallet.setColor(optionalText(payload, "color"));
+        wallet.setInitialBalance(payload.path("initialBalance").asLong(0L));
+        wallet.setIncludeInTotal(payload.path("includeInTotal").asBoolean(true));
+        wallet.setDeleted(false);
+        String createdAtText = optionalText(payload, "createdAt");
+        if (createdAtText != null) {
+            wallet.setCreatedAt(Instant.parse(createdAtText));
+        }
+        dimWalletRepository.save(wallet);
+    }
+
+    private void ensureDimWalletExists(UUID walletId, UUID userId, String walletName, String walletKind) {
+        if (dimWalletRepository.findById(walletId).isPresent()) {
+            return;
+        }
+        DimWallet wallet = new DimWallet();
+        wallet.setWalletId(walletId);
+        wallet.setUserId(userId);
+        wallet.setName(walletName);
+        wallet.setKind(walletKind);
+        wallet.setInitialBalance(0L);
+        wallet.setIncludeInTotal(true);
+        wallet.setDeleted(false);
+        dimWalletRepository.save(wallet);
     }
 
     private void handleTransactionCreated(UUID envelopeUserId, JsonNode payload) {
@@ -121,6 +158,7 @@ public class ReadModelProjectionService {
         fact.setDeleted(false);
 
         factTransactionRepository.save(fact);
+        ensureDimWalletExists(fact.getWalletId(), userId, fact.getWalletName(), fact.getWalletKind());
 
         // D10: chi INCOME/EXPENSE va khong excluded moi anh huong bang agg_*
         if (!fact.isExcluded() && isReportableFlow(fact.getType())) {

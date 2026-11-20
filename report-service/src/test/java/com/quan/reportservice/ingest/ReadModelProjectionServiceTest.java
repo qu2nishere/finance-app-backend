@@ -40,6 +40,8 @@ class ReadModelProjectionServiceTest {
     @Mock
     private FactTransactionRepository factTransactionRepository;
     @Mock
+    private DimWalletRepository dimWalletRepository;
+    @Mock
     private AggMonthlySummaryRepository aggMonthlySummaryRepository;
     @Mock
     private AggMonthlyCategoryRepository aggMonthlyCategoryRepository;
@@ -48,6 +50,7 @@ class ReadModelProjectionServiceTest {
 
     private final Set<UUID> processedIds = new HashSet<>();
     private final Map<UUID, FactTransaction> facts = new HashMap<>();
+    private final Map<UUID, DimWallet> wallets = new HashMap<>();
     private final Map<String, AggMonthlySummary> summaries = new HashMap<>();
     private final Map<String, List<AggMonthlyCategory>> categoriesByMonth = new HashMap<>();
     private final Map<LocalDate, AggDaily> dailies = new HashMap<>();
@@ -62,10 +65,19 @@ class ReadModelProjectionServiceTest {
                 processedEventRepository,
                 deadLetterEventRepository,
                 factTransactionRepository,
+                dimWalletRepository,
                 aggMonthlySummaryRepository,
                 aggMonthlyCategoryRepository,
                 aggDailyRepository
         );
+
+        lenient().when(dimWalletRepository.findById(any())).thenAnswer(inv ->
+                Optional.ofNullable(wallets.get(inv.getArgument(0))));
+        lenient().when(dimWalletRepository.save(any())).thenAnswer(inv -> {
+            DimWallet w = inv.getArgument(0);
+            wallets.put(w.getWalletId(), w);
+            return w;
+        });
 
         lenient().when(processedEventRepository.existsById(any())).thenAnswer(inv ->
                 processedIds.contains(inv.getArgument(0)));
@@ -342,6 +354,75 @@ class ReadModelProjectionServiceTest {
         assertThat(facts).containsKeys(transferId, adjustId);
         assertThat(summaries).isEmpty();
         assertThat(dailies).isEmpty();
+    }
+
+    @Test
+    void walletCreated_upsertsDimWalletAndIgnoresDuplicateEventId() {
+        UUID eventId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        UUID walletId = UUID.randomUUID();
+        String payload = """
+                {
+                  "walletId": "%s",
+                  "name": "Vietcombank",
+                  "kind": "BANK",
+                  "color": "#0E9F6E",
+                  "initialBalance": 11510000,
+                  "currencyCode": "VND",
+                  "includeInTotal": true,
+                  "createdAt": "2026-11-20T05:00:00Z"
+                }
+                """.formatted(walletId);
+
+        service.processEvent(eventId, "WalletCreated", userId, walletId, mapper.readTree(payload));
+        service.processEvent(eventId, "WalletCreated", userId, walletId, mapper.readTree(payload));
+
+        assertThat(wallets).containsKey(walletId);
+        DimWallet saved = wallets.get(walletId);
+        assertThat(saved.getName()).isEqualTo("Vietcombank");
+        assertThat(saved.getKind()).isEqualTo("BANK");
+        assertThat(saved.getColor()).isEqualTo("#0E9F6E");
+        assertThat(saved.getInitialBalance()).isEqualTo(11_510_000L);
+        assertThat(saved.isIncludeInTotal()).isTrue();
+        assertThat(saved.getCreatedAt()).isNotNull();
+        assertThat(processedIds).contains(eventId);
+    }
+
+    @Test
+    void transactionCreatedBeforeWalletCreated_upsertsPlaceholderThenWalletCreatedFillsInitialBalance() {
+        UUID userId = UUID.randomUUID();
+        UUID walletId = UUID.randomUUID();
+        UUID txnId = UUID.randomUUID();
+        UUID catId = UUID.randomUUID();
+
+        service.processEvent(
+                UUID.randomUUID(),
+                "TransactionCreated",
+                userId,
+                txnId,
+                mapper.readTree(createdPayloadJson(txnId, walletId, catId, "Lương", "INCOME", 5_000_000L, 5_000_000L, "2026-11-10"))
+        );
+
+        assertThat(wallets).containsKey(walletId);
+        assertThat(wallets.get(walletId).getInitialBalance()).isEqualTo(0L);
+        assertThat(wallets.get(walletId).getName()).isEqualTo("Vietcombank");
+
+        String walletPayload = """
+                {
+                  "walletId": "%s",
+                  "name": "Vietcombank",
+                  "kind": "BANK",
+                  "color": "#0E9F6E",
+                  "initialBalance": 10000000,
+                  "currencyCode": "VND",
+                  "includeInTotal": true,
+                  "createdAt": "2026-11-01T00:00:00Z"
+                }
+                """.formatted(walletId);
+        service.processEvent(UUID.randomUUID(), "WalletCreated", userId, walletId, mapper.readTree(walletPayload));
+
+        assertThat(wallets.get(walletId).getInitialBalance()).isEqualTo(10_000_000L);
+        assertThat(wallets.get(walletId).getColor()).isEqualTo("#0E9F6E");
     }
 
     private static String createdPayloadJson(UUID txnId,
