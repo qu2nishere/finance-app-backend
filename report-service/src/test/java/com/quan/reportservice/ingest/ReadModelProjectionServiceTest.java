@@ -27,6 +27,7 @@ import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.lenient;
 
@@ -265,13 +266,16 @@ class ReadModelProjectionServiceTest {
     }
 
     @Test
-    void unknownEventType_isIgnoredSilently() {
+    void unknownEventType_throwsAndIsNotMarkedProcessed() {
         UUID eventId = UUID.randomUUID();
         UUID userId = UUID.randomUUID();
 
-        service.processEvent(eventId, "UserRegistered", userId, userId, mapper.readTree("{\"email\":\"a@b.com\"}"));
+        assertThatThrownBy(() -> service.processEvent(
+                eventId, "UserRegistered", userId, userId, mapper.readTree("{\"email\":\"a@b.com\"}")))
+                .isInstanceOf(UnsupportedEventTypeException.class)
+                .hasMessageContaining("UNSUPPORTED_EVENT_TYPE");
 
-        assertThat(processedIds).contains(eventId);
+        assertThat(processedIds).doesNotContain(eventId);
         assertThat(facts).isEmpty();
         assertThat(summaries).isEmpty();
     }

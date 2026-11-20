@@ -39,6 +39,15 @@ public class ReportEventConsumer {
             UUID aggregateId = parseOptionalUuid(envelope, "aggregateId");
             JsonNode payload = envelope.path("payload");
 
+            if (!ReadModelProjectionService.supports(eventType)) {
+                // Khong retry: lan thu nao cung that bai. Giu lai nguyen message de phat lai.
+                log.warn("Event chua ho tro o report-service (eventId={}, eventType={}), ghi dead letter",
+                        eventId, eventType);
+                projectionService.recordDeadLetter(eventId, eventType, rawJson,
+                        new UnsupportedEventTypeException(eventType).getMessage(), 1);
+                return;
+            }
+
             executeWithRetry(eventId, eventType, userId, aggregateId, payload, rawJson);
         } catch (Exception ex) {
             log.error("Loi parse/xu ly event o report-service (eventId={}, eventType={})", eventId, eventType, ex);

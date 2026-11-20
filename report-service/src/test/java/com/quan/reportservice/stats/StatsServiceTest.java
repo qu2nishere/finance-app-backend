@@ -249,6 +249,47 @@ class StatsServiceTest {
     }
 
     @Test
+    void getCashflowSummary_walletMissingFromDimWallet_stillCountedFromFacts() {
+        // Tai hien loi 2026-11-20: WalletCreated bi mat -> dim_wallet rong nhung fact van co giao dich
+        UUID userId = UUID.randomUUID();
+        UUID cashId = UUID.randomUUID();
+        when(dimWalletRepository.findByUserIdAndDeletedFalseOrderByNameAsc(userId)).thenReturn(List.of());
+        when(factTransactionRepository.sumSignedBeforeDateByWallet(userId, LocalDate.of(2026, 11, 1)))
+                .thenReturn(List.of(signedSum(cashId, -25_002L)));
+        when(factTransactionRepository.sumMonthFlowByWallet(userId, "2026-11"))
+                .thenReturn(List.of(monthFlow(cashId, -50_050L, 0L, 50_050L, 2L)));
+        when(factTransactionRepository.findWalletLabels(eq(userId), anyCollection()))
+                .thenReturn(List.of(walletLabel(cashId, "Tiền mặt", "CASH")));
+
+        CashflowSummaryResponse resp = statsService.getCashflowSummary(userId, "2026-11");
+
+        assertThat(resp.openingBalance()).isEqualTo(-25_002L);
+        assertThat(resp.totalIncome()).isZero();
+        assertThat(resp.totalExpense()).isEqualTo(50_050L);
+        assertThat(resp.closingBalance()).isEqualTo(-75_052L);
+        assertThat(resp.wallets()).hasSize(1);
+        assertThat(resp.wallets().get(0).walletName()).isEqualTo("Tiền mặt");
+        assertThat(resp.wallets().get(0).netFlow()).isEqualTo(-50_050L);
+        assertThat(resp.wallets().get(0).includeInTotal()).isTrue();
+    }
+
+    @Test
+    void getCashflowSummary_deletedWalletInFacts_isNotTreatedAsMissing() {
+        UUID userId = UUID.randomUUID();
+        UUID deletedId = UUID.randomUUID();
+        when(dimWalletRepository.findByUserIdAndDeletedFalseOrderByNameAsc(userId)).thenReturn(List.of());
+        when(dimWalletRepository.findDeletedWalletIds(userId)).thenReturn(List.of(deletedId));
+        when(factTransactionRepository.sumSignedBeforeDateByWallet(userId, LocalDate.of(2026, 11, 1)))
+                .thenReturn(List.of(signedSum(deletedId, 1_000_000L)));
+        when(factTransactionRepository.sumMonthFlowByWallet(userId, "2026-11")).thenReturn(List.of());
+
+        CashflowSummaryResponse resp = statsService.getCashflowSummary(userId, "2026-11");
+
+        assertThat(resp.openingBalance()).isZero();
+        assertThat(resp.wallets()).isEmpty();
+    }
+
+    @Test
     void getCashflowSummary_invalidPeriod_throwsInvalidPeriod() {
         UUID userId = UUID.randomUUID();
         assertThatThrownBy(() -> statsService.getCashflowSummary(userId, "2026-99"))
@@ -273,6 +314,25 @@ class StatsServiceTest {
         w.setInitialBalance(initialBalance);
         w.setIncludeInTotal(includeInTotal);
         return w;
+    }
+
+    private static FactTransactionRepository.WalletLabelProjection walletLabel(UUID walletId, String name, String kind) {
+        return new FactTransactionRepository.WalletLabelProjection() {
+            @Override
+            public UUID getWalletId() {
+                return walletId;
+            }
+
+            @Override
+            public String getWalletName() {
+                return name;
+            }
+
+            @Override
+            public String getWalletKind() {
+                return kind;
+            }
+        };
     }
 
     private static FactTransactionRepository.WalletSignedSumProjection signedSum(UUID walletId, long signedTotal) {

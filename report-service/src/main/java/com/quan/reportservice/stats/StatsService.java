@@ -14,6 +14,7 @@ import com.quan.reportservice.stats.dto.MonthlyTrendResponse;
 import com.quan.reportservice.stats.dto.ReportTransactionItemResponse;
 import com.quan.reportservice.stats.dto.WalletCashflowItemResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -34,6 +35,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class StatsService {
@@ -232,15 +234,22 @@ public class StatsService {
                         p -> p
                 ));
 
+        List<WalletRef> walletRefs = new ArrayList<>();
+        for (DimWallet w : wallets) {
+            walletRefs.add(new WalletRef(w.getWalletId(), w.getName(), w.getKind(), w.getColor(),
+                    w.getInitialBalance(), w.isIncludeInTotal()));
+        }
+        walletRefs.addAll(walletsMissingFromDim(userId, wallets, beforeMap.keySet(), monthMap.keySet()));
+
         long totalOpening = 0L;
         long totalIncome = 0L;
         long totalExpense = 0L;
         long totalClosing = 0L;
         List<WalletCashflowItemResponse> items = new ArrayList<>();
 
-        for (DimWallet w : wallets) {
-            long opening = w.getInitialBalance() + beforeMap.getOrDefault(w.getWalletId(), 0L);
-            FactTransactionRepository.WalletMonthFlowProjection mf = monthMap.get(w.getWalletId());
+        for (WalletRef w : walletRefs) {
+            long opening = w.initialBalance() + beforeMap.getOrDefault(w.walletId(), 0L);
+            FactTransactionRepository.WalletMonthFlowProjection mf = monthMap.get(w.walletId());
             long signedInMonth = mf != null ? mf.getSignedTotal() : 0L;
             long income = mf != null ? mf.getIncomeTotal() : 0L;
             long expense = mf != null ? mf.getExpenseTotal() : 0L;
@@ -248,7 +257,7 @@ public class StatsService {
             long closing = opening + signedInMonth;
             long netFlow = closing - opening;
 
-            if (w.isIncludeInTotal()) {
+            if (w.includeInTotal()) {
                 totalOpening += opening;
                 totalIncome += income;
                 totalExpense += expense;
@@ -257,17 +266,17 @@ public class StatsService {
 
             if (opening != 0L || closing != 0L || txnCount > 0L) {
                 items.add(new WalletCashflowItemResponse(
-                        w.getWalletId(),
-                        w.getName(),
-                        w.getKind(),
-                        w.getColor() != null ? w.getColor().trim() : null,
+                        w.walletId(),
+                        w.name(),
+                        w.kind(),
+                        w.color() != null ? w.color().trim() : null,
                         null,
                         opening,
                         income,
                         expense,
                         netFlow,
                         closing,
-                        w.isIncludeInTotal()
+                        w.includeInTotal()
                 ));
             }
         }
@@ -285,6 +294,53 @@ public class StatsService {
                 totalClosing,
                 items
         );
+    }
+
+    /** Vi dung de tinh dong tien: lay tu dim_wallet, hoac dung tam tu fact khi dim_wallet thieu. */
+    private record WalletRef(UUID walletId,
+                             String name,
+                             String kind,
+                             String color,
+                             long initialBalance,
+                             boolean includeInTotal) {
+    }
+
+    /**
+     * Vi co giao dich trong fact_transactions nhung chua co trong dim_wallet (vd event
+     * WalletCreated bi mat). Van dua vao bao cao de Tien vao/ra khong ve 0; so du ban dau
+     * tam coi la 0 va ghi WARN de biet can phat lai event vi.
+     */
+    private List<WalletRef> walletsMissingFromDim(UUID userId,
+                                                  List<DimWallet> activeWallets,
+                                                  Set<UUID> idsBefore,
+                                                  Set<UUID> idsInMonth) {
+        Set<UUID> missing = new LinkedHashSet<>(idsBefore);
+        missing.addAll(idsInMonth);
+        activeWallets.forEach(w -> missing.remove(w.getWalletId()));
+        if (missing.isEmpty()) {
+            return List.of();
+        }
+        dimWalletRepository.findDeletedWalletIds(userId).forEach(missing::remove);
+        if (missing.isEmpty()) {
+            return List.of();
+        }
+
+        log.warn("dim_wallet thieu {} vi cua user {}: {} — tam tinh initial_balance = 0, can phat lai WalletCreated",
+                missing.size(), userId, missing);
+
+        Map<UUID, FactTransactionRepository.WalletLabelProjection> labels = factTransactionRepository
+                .findWalletLabels(userId, missing)
+                .stream()
+                .collect(Collectors.toMap(FactTransactionRepository.WalletLabelProjection::getWalletId, p -> p));
+
+        List<WalletRef> refs = new ArrayList<>(missing.size());
+        for (UUID id : missing) {
+            FactTransactionRepository.WalletLabelProjection label = labels.get(id);
+            String name = label != null && label.getWalletName() != null ? label.getWalletName() : "Ví";
+            String kind = label != null && label.getWalletKind() != null ? label.getWalletKind() : "CASH";
+            refs.add(new WalletRef(id, name, kind, null, 0L, true));
+        }
+        return refs;
     }
 
     private List<CategoryBreakdownItemResponse> buildCategoryBreakdown(UUID userId,

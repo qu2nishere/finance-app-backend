@@ -60,6 +60,11 @@ public class ReadModelProjectionService {
                              UUID userId,
                              UUID aggregateId,
                              JsonNode payload) {
+        // Loai event chua ho tro: KHONG danh dau processed_events, de khi deploy ban
+        // biet xu ly loai nay thi phat lai (tu dead_letter_events hoac outbox) van chay.
+        if (!supports(eventType)) {
+            throw new UnsupportedEventTypeException(eventType);
+        }
         if (processedEventRepository.existsById(eventId)) {
             log.debug("Bo qua event da xu ly eventId={}", eventId);
             return;
@@ -70,8 +75,16 @@ public class ReadModelProjectionService {
             case "WalletCreated" -> handleWalletCreated(userId, payload);
             case "TransactionCreated" -> handleTransactionCreated(userId, payload);
             case "TransactionDeleted" -> handleTransactionDeleted(userId, payload);
-            default -> log.debug("Bo qua event chua can xu ly o report-service: {}", eventType);
+            default -> throw new UnsupportedEventTypeException(eventType);
         }
+    }
+
+    /** Cac loai event report-service biet xu ly. Them case moi o processEvent thi them vao day. */
+    public static final Set<String> SUPPORTED_EVENT_TYPES =
+            Set.of("WalletCreated", "TransactionCreated", "TransactionDeleted");
+
+    public static boolean supports(String eventType) {
+        return eventType != null && SUPPORTED_EVENT_TYPES.contains(eventType);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)

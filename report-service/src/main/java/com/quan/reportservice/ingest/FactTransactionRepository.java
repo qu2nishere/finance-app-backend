@@ -5,6 +5,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -84,5 +85,26 @@ public interface FactTransactionRepository extends JpaRepository<FactTransaction
     List<WalletMonthFlowProjection> sumMonthFlowByWallet(
             @Param("userId") UUID userId,
             @Param("yearMonth") String yearMonth
+    );
+
+    interface WalletLabelProjection {
+        UUID getWalletId();
+        String getWalletName();
+        String getWalletKind();
+    }
+
+    /** Ten/loai vi nhung san trong fact — dung khi vi chua co trong dim_wallet. */
+    @Query("""
+           select f.walletId as walletId,
+                  max(f.walletName) as walletName,
+                  max(f.walletKind) as walletKind
+           from FactTransaction f
+           where f.userId = :userId
+             and f.walletId in :walletIds
+           group by f.walletId
+           """)
+    List<WalletLabelProjection> findWalletLabels(
+            @Param("userId") UUID userId,
+            @Param("walletIds") Collection<UUID> walletIds
     );
 }
