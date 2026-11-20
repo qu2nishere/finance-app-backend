@@ -1172,8 +1172,10 @@ CREATE TABLE dim_wallet (
     name             VARCHAR(100) NOT NULL,
     kind             VARCHAR(20)  NOT NULL,
     color            CHAR(7),
+    initial_balance  BIGINT       NOT NULL DEFAULT 0,
     include_in_total BOOLEAN      NOT NULL DEFAULT true,
     is_deleted       BOOLEAN      NOT NULL DEFAULT false,
+    created_at       TIMESTAMPTZ,
     updated_at       TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 ```
@@ -1375,7 +1377,7 @@ Exchange: `finance.events` (topic) — đã cấu hình sẵn qua `app.events.ex
 | `transaction.created` | ledger | budget, report | xem bên dưới |
 | `transaction.updated` | ledger | budget, report | như trên + `previousAmount`, `previousCategoryId` |
 | `transaction.deleted` | ledger | budget, report | `transactionId`, `userId`, `walletId`, `categoryId`, `type`, `amount`, `signedAmount`, `occurredAt`, `occurredDate`, `isExcludedFromReport` |
-| `wallet.created` / `wallet.updated` | ledger | report | `walletId`, `userId`, `name`, `kind`, `color` |
+| `wallet.created` / `wallet.updated` | ledger | report | `walletId`, `name`, `kind`, `color`, `initialBalance`, `currencyCode`, `includeInTotal`, `createdAt` |
 | `wallet.balance.changed` | ledger | budget, report | `walletId`, `userId`, `newBalance`, `delta`, `changedAt` |
 | `category.created` / `category.updated` | ledger | budget, report | `categoryId`, `userId`, `name`, `flow`, `icon`, `color`, `parentId` |
 | `budget.limit.exceeded` | budget | user (→ notification) | `userId`, `categoryId`, `categoryName`, `spent`, `limit`, `periodKey` |

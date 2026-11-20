@@ -1,5 +1,6 @@
 package com.quan.ledgerservice.wallet;
 
+import com.quan.ledgerservice.common.event.EventPublisher;
 import com.quan.ledgerservice.wallet.dto.CreateWalletRequest;
 import com.quan.ledgerservice.wallet.dto.WalletResponse;
 import lombok.RequiredArgsConstructor;
@@ -14,6 +15,7 @@ import java.util.UUID;
 public class WalletService {
 
     private final WalletRepository walletRepository;
+    private final EventPublisher eventPublisher;
 
     @Transactional
     public List<WalletResponse> getWallets(UUID userId) {
@@ -31,7 +33,9 @@ public class WalletService {
             defaultWallet.setColor("#2563EB");
             defaultWallet.setIncludeInTotal(true);
             defaultWallet.setDisplayOrder((short) 1);
-            wallets = List.of(walletRepository.save(defaultWallet));
+            Wallet saved = walletRepository.save(defaultWallet);
+            publishWalletCreated(userId, saved);
+            wallets = List.of(saved);
         }
         return wallets.stream().map(WalletResponse::from).toList();
     }
@@ -51,6 +55,18 @@ public class WalletService {
             wallet.setColor(request.color());
         }
         wallet.setNote(request.note());
-        return WalletResponse.from(walletRepository.save(wallet));
+        Wallet saved = walletRepository.save(wallet);
+        publishWalletCreated(userId, saved);
+        return WalletResponse.from(saved);
+    }
+
+    private void publishWalletCreated(UUID userId, Wallet wallet) {
+        eventPublisher.publish(
+                "WALLET",
+                wallet.getId(),
+                "WalletCreated",
+                userId,
+                WalletCreatedPayload.from(wallet)
+        );
     }
 }

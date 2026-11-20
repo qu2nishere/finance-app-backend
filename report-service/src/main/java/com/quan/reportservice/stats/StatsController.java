@@ -1,6 +1,7 @@
 package com.quan.reportservice.stats;
 
 import com.quan.reportservice.common.security.CurrentUser;
+import com.quan.reportservice.stats.dto.CashflowSummaryResponse;
 import com.quan.reportservice.stats.dto.MonthlyTransactionsResponse;
 import com.quan.reportservice.stats.dto.MonthlyTrendResponse;
 import lombok.RequiredArgsConstructor;
@@ -37,5 +38,13 @@ public class StatsController {
             @RequestParam(required = false) UUID categoryId
     ) {
         return statsService.getTransactions(userId, period, date, type, categoryId);
+    }
+
+    @GetMapping("/cashflow-summary")
+    public CashflowSummaryResponse getCashflowSummary(
+            @CurrentUser UUID userId,
+            @RequestParam(required = false) String period
+    ) {
+        return statsService.getCashflowSummary(userId, period);
     }
 }

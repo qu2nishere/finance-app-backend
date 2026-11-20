@@ -9,6 +9,7 @@ import com.quan.ledgerservice.transaction.dto.CreateTransactionRequest;
 import com.quan.ledgerservice.transaction.dto.MonthlySummaryResponse;
 import com.quan.ledgerservice.transaction.dto.TransactionResponse;
 import com.quan.ledgerservice.wallet.Wallet;
+import com.quan.ledgerservice.wallet.WalletCreatedPayload;
 import com.quan.ledgerservice.wallet.WalletKind;
 import com.quan.ledgerservice.wallet.WalletRepository;
 import lombok.RequiredArgsConstructor;
@@ -63,6 +64,13 @@ public class TransactionService {
                 defaultWallet.setIncludeInTotal(true);
                 defaultWallet.setDisplayOrder((short) 1);
                 wallet = walletRepository.save(defaultWallet);
+                eventPublisher.publish(
+                        "WALLET",
+                        wallet.getId(),
+                        "WalletCreated",
+                        userId,
+                        WalletCreatedPayload.from(wallet)
+                );
             }
         }
 

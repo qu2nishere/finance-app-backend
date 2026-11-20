@@ -91,4 +91,28 @@ class ReportEventConsumerTest {
         verify(projectionService, times(1))
                 .recordDeadLetter(eq(null), eq(null), eq("{\"raw\":\"invalid_json\"}"), any(), eq(1));
     }
+
+    @Test
+    void onMessage_unsupportedEventType_recordsDeadLetterOnceWithoutRetry() {
+        UUID eventId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+        String json = """
+                {
+                  "eventId": "%s",
+                  "eventType": "BudgetExceeded",
+                  "version": 1,
+                  "occurredAt": "2026-11-20T03:00:00Z",
+                  "userId": "%s",
+                  "aggregateId": "%s",
+                  "payload": {}
+                }
+                """.formatted(eventId, userId, userId);
+
+        consumer.onMessage(json);
+
+        verify(projectionService, never()).processEvent(any(), any(), any(), any(), any());
+        verify(projectionService, times(1))
+                .recordDeadLetter(eq(eventId), eq("BudgetExceeded"), eq(json),
+                        eq("UNSUPPORTED_EVENT_TYPE: BudgetExceeded"), eq(1));
+    }
 }
