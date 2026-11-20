@@ -7,9 +7,11 @@ import com.quan.reportservice.common.exception.InvalidRequestException;
 import com.quan.reportservice.common.security.CurrentUserArgumentResolver;
 import com.quan.reportservice.common.security.JwtAuthFilter;
 import com.quan.reportservice.common.security.JwtService;
+import com.quan.reportservice.stats.dto.CashflowSummaryResponse;
 import com.quan.reportservice.stats.dto.MonthlyBarPointResponse;
 import com.quan.reportservice.stats.dto.MonthlyTransactionsResponse;
 import com.quan.reportservice.stats.dto.MonthlyTrendResponse;
+import com.quan.reportservice.stats.dto.WalletCashflowItemResponse;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import org.junit.jupiter.api.Test;
@@ -155,6 +157,71 @@ class StatsControllerTest {
                 .andExpect(jsonPath("$.selectedDate").value("2026-08-22"))
                 .andExpect(jsonPath("$.monthTotalAmount").value(8_055_000L))
                 .andExpect(jsonPath("$.filteredTotalAmount").value(285_000L));
+    }
+
+    @Test
+    void getCashflowSummary_withoutToken_returns401ProblemDetail() throws Exception {
+        mockMvc.perform(get("/api/stats/cashflow-summary")
+                        .param("period", "2026-08"))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.status").value(401))
+                .andExpect(jsonPath("$.code").value("TOKEN_INVALID"));
+    }
+
+    @Test
+    void getCashflowSummary_withValidJwt_returns200() throws Exception {
+        UUID userId = UUID.randomUUID();
+        UUID walletId = UUID.randomUUID();
+        String token = signToken(userId);
+
+        CashflowSummaryResponse mockResp = new CashflowSummaryResponse(
+                "2026-08",
+                "VND",
+                11_510_000L,
+                18_200_000L,
+                9_712_000L,
+                19_998_000L,
+                List.of(new WalletCashflowItemResponse(
+                        walletId,
+                        "Vietcombank",
+                        "BANK",
+                        "#0E9F6E",
+                        null,
+                        10_000_000L,
+                        18_200_000L,
+                        10_300_000L,
+                        7_900_000L,
+                        17_900_000L,
+                        true
+                ))
+        );
+        when(statsService.getCashflowSummary(userId, "2026-08")).thenReturn(mockResp);
+
+        mockMvc.perform(get("/api/stats/cashflow-summary")
+                        .header("Authorization", "Bearer " + token)
+                        .param("period", "2026-08"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.period").value("2026-08"))
+                .andExpect(jsonPath("$.openingBalance").value(11_510_000L))
+                .andExpect(jsonPath("$.closingBalance").value(19_998_000L))
+                .andExpect(jsonPath("$.wallets[0].walletName").value("Vietcombank"))
+                .andExpect(jsonPath("$.wallets[0].netFlow").value(7_900_000L));
+    }
+
+    @Test
+    void getCashflowSummary_withInvalidPeriod_returns400ProblemDetail() throws Exception {
+        UUID userId = UUID.randomUUID();
+        String token = signToken(userId);
+
+        when(statsService.getCashflowSummary(userId, "2026-13"))
+                .thenThrow(new InvalidRequestException("INVALID_PERIOD", "Kỳ thống kê không đúng định dạng YYYY-MM"));
+
+        mockMvc.perform(get("/api/stats/cashflow-summary")
+                        .header("Authorization", "Bearer " + token)
+                        .param("period", "2026-13"))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.code").value("INVALID_PERIOD"));
     }
 
     private static String signToken(UUID userId) {

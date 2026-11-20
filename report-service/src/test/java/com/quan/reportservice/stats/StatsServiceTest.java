@@ -1,8 +1,11 @@
 package com.quan.reportservice.stats;
 
 import com.quan.reportservice.common.exception.InvalidRequestException;
+import com.quan.reportservice.ingest.DimWallet;
+import com.quan.reportservice.ingest.DimWalletRepository;
 import com.quan.reportservice.ingest.FactTransaction;
 import com.quan.reportservice.ingest.FactTransactionRepository;
+import com.quan.reportservice.stats.dto.CashflowSummaryResponse;
 import com.quan.reportservice.stats.dto.CategoryBreakdownItemResponse;
 import com.quan.reportservice.stats.dto.MonthlyTransactionsResponse;
 import com.quan.reportservice.stats.dto.MonthlyTrendResponse;
@@ -33,6 +36,8 @@ class StatsServiceTest {
     private AggMonthlyCategoryRepository aggMonthlyCategoryRepository;
     @Mock
     private FactTransactionRepository factTransactionRepository;
+    @Mock
+    private DimWalletRepository dimWalletRepository;
 
     @InjectMocks
     private StatsService statsService;
@@ -172,6 +177,149 @@ class StatsServiceTest {
                 .isInstanceOf(InvalidRequestException.class)
                 .extracting("code")
                 .isEqualTo("INVALID_TRANSACTION_TYPE");
+    }
+
+    @Test
+    void getCashflowSummary_computesOpeningClosingAndRespectsIncludeInTotalAndSorting() {
+        UUID userId = UUID.randomUUID();
+        UUID vcbId = UUID.randomUUID();
+        UUID momoId = UUID.randomUUID();
+        UUID hiddenId = UUID.randomUUID();
+        UUID emptyId = UUID.randomUUID();
+
+        DimWallet vcb = dimWallet(vcbId, userId, "Vietcombank", "BANK", "#0E9F6E", 10_000_000L, true);
+        DimWallet momo = dimWallet(momoId, userId, "Momo", "EWALLET", "#D946EF", 1_000_000L, true);
+        DimWallet hidden = dimWallet(hiddenId, userId, "Tiết kiệm riêng", "SAVING", "#64748B", 5_000_000L, false);
+        DimWallet empty = dimWallet(emptyId, userId, "Ví rỗng", "CASH", "#2563EB", 0L, true);
+
+        when(dimWalletRepository.findByUserIdAndDeletedFalseOrderByNameAsc(userId))
+                .thenReturn(List.of(momo, hidden, vcb, empty));
+        when(factTransactionRepository.sumSignedBeforeDateByWallet(userId, LocalDate.of(2026, 8, 1)))
+                .thenReturn(List.of(
+                        signedSum(vcbId, 510_000L),
+                        signedSum(momoId, 0L)
+                ));
+        when(factTransactionRepository.sumMonthFlowByWallet(userId, "2026-08"))
+                .thenReturn(List.of(
+                        monthFlow(vcbId, 7_900_000L, 18_200_000L, 10_300_000L, 5L),
+                        monthFlow(momoId, -1_200_000L, 0L, 1_200_000L, 2L),
+                        monthFlow(hiddenId, 2_000_000L, 2_000_000L, 0L, 1L)
+                ));
+
+        CashflowSummaryResponse resp = statsService.getCashflowSummary(userId, "2026-08");
+
+        assertThat(resp.period()).isEqualTo("2026-08");
+        assertThat(resp.currencyCode()).isEqualTo("VND");
+        // Chi tinh vcb + momo (hidden co includeInTotal = false)
+        assertThat(resp.openingBalance()).isEqualTo(11_510_000L);
+        assertThat(resp.totalIncome()).isEqualTo(18_200_000L);
+        assertThat(resp.totalExpense()).isEqualTo(11_500_000L);
+        assertThat(resp.closingBalance()).isEqualTo(18_210_000L);
+
+        // Danh sach Theo vi: bo empty (so du = 0 & khong giao dich), sap xep theo |netFlow| giam dan
+        assertThat(resp.wallets()).hasSize(3);
+        assertThat(resp.wallets().get(0).walletId()).isEqualTo(vcbId);
+        assertThat(resp.wallets().get(0).openingBalance()).isEqualTo(10_510_000L);
+        assertThat(resp.wallets().get(0).netFlow()).isEqualTo(7_900_000L);
+        assertThat(resp.wallets().get(0).closingBalance()).isEqualTo(18_410_000L);
+
+        assertThat(resp.wallets().get(1).walletId()).isEqualTo(hiddenId);
+        assertThat(resp.wallets().get(1).netFlow()).isEqualTo(2_000_000L);
+        assertThat(resp.wallets().get(1).includeInTotal()).isFalse();
+
+        assertThat(resp.wallets().get(2).walletId()).isEqualTo(momoId);
+        assertThat(resp.wallets().get(2).netFlow()).isEqualTo(-1_200_000L);
+        assertThat(resp.wallets().get(2).closingBalance()).isEqualTo(-200_000L);
+    }
+
+    @Test
+    void getCashflowSummary_emptyMonthAndNoWallets_returnsZeros() {
+        UUID userId = UUID.randomUUID();
+        when(dimWalletRepository.findByUserIdAndDeletedFalseOrderByNameAsc(userId)).thenReturn(List.of());
+        when(factTransactionRepository.sumSignedBeforeDateByWallet(userId, LocalDate.of(2026, 8, 1))).thenReturn(List.of());
+        when(factTransactionRepository.sumMonthFlowByWallet(userId, "2026-08")).thenReturn(List.of());
+
+        CashflowSummaryResponse resp = statsService.getCashflowSummary(userId, "2026-08");
+
+        assertThat(resp.openingBalance()).isZero();
+        assertThat(resp.totalIncome()).isZero();
+        assertThat(resp.totalExpense()).isZero();
+        assertThat(resp.closingBalance()).isZero();
+        assertThat(resp.wallets()).isEmpty();
+    }
+
+    @Test
+    void getCashflowSummary_invalidPeriod_throwsInvalidPeriod() {
+        UUID userId = UUID.randomUUID();
+        assertThatThrownBy(() -> statsService.getCashflowSummary(userId, "2026-99"))
+                .isInstanceOf(InvalidRequestException.class)
+                .extracting("code")
+                .isEqualTo("INVALID_PERIOD");
+    }
+
+    private static DimWallet dimWallet(UUID id,
+                                       UUID userId,
+                                       String name,
+                                       String kind,
+                                       String color,
+                                       long initialBalance,
+                                       boolean includeInTotal) {
+        DimWallet w = new DimWallet();
+        w.setWalletId(id);
+        w.setUserId(userId);
+        w.setName(name);
+        w.setKind(kind);
+        w.setColor(color);
+        w.setInitialBalance(initialBalance);
+        w.setIncludeInTotal(includeInTotal);
+        return w;
+    }
+
+    private static FactTransactionRepository.WalletSignedSumProjection signedSum(UUID walletId, long signedTotal) {
+        return new FactTransactionRepository.WalletSignedSumProjection() {
+            @Override
+            public UUID getWalletId() {
+                return walletId;
+            }
+
+            @Override
+            public long getSignedTotal() {
+                return signedTotal;
+            }
+        };
+    }
+
+    private static FactTransactionRepository.WalletMonthFlowProjection monthFlow(UUID walletId,
+                                                                                  long signedTotal,
+                                                                                  long incomeTotal,
+                                                                                  long expenseTotal,
+                                                                                  long txnCount) {
+        return new FactTransactionRepository.WalletMonthFlowProjection() {
+            @Override
+            public UUID getWalletId() {
+                return walletId;
+            }
+
+            @Override
+            public long getSignedTotal() {
+                return signedTotal;
+            }
+
+            @Override
+            public long getIncomeTotal() {
+                return incomeTotal;
+            }
+
+            @Override
+            public long getExpenseTotal() {
+                return expenseTotal;
+            }
+
+            @Override
+            public long getTxnCount() {
+                return txnCount;
+            }
+        };
     }
 
     private static FactTransaction fact(UUID userId,

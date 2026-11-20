@@ -39,4 +39,50 @@ public interface FactTransactionRepository extends JpaRepository<FactTransaction
             @Param("userId") UUID userId,
             @Param("occurredDate") LocalDate occurredDate
     );
+
+    interface WalletSignedSumProjection {
+        UUID getWalletId();
+        long getSignedTotal();
+    }
+
+    interface WalletMonthFlowProjection {
+        UUID getWalletId();
+        long getSignedTotal();
+        long getIncomeTotal();
+        long getExpenseTotal();
+        long getTxnCount();
+    }
+
+    @Query("""
+           select f.walletId as walletId,
+                  coalesce(sum(f.amountSigned), 0L) as signedTotal
+           from FactTransaction f
+           where f.userId = :userId
+             and f.occurredDate < :beforeDate
+             and f.deleted = false
+             and f.excluded = false
+           group by f.walletId
+           """)
+    List<WalletSignedSumProjection> sumSignedBeforeDateByWallet(
+            @Param("userId") UUID userId,
+            @Param("beforeDate") LocalDate beforeDate
+    );
+
+    @Query("""
+           select f.walletId as walletId,
+                  coalesce(sum(f.amountSigned), 0L) as signedTotal,
+                  coalesce(sum(case when f.type = 'INCOME' then f.amountAbs else 0L end), 0L) as incomeTotal,
+                  coalesce(sum(case when f.type = 'EXPENSE' then f.amountAbs else 0L end), 0L) as expenseTotal,
+                  count(f) as txnCount
+           from FactTransaction f
+           where f.userId = :userId
+             and f.yearMonth = :yearMonth
+             and f.deleted = false
+             and f.excluded = false
+           group by f.walletId
+           """)
+    List<WalletMonthFlowProjection> sumMonthFlowByWallet(
+            @Param("userId") UUID userId,
+            @Param("yearMonth") String yearMonth
+    );
 }

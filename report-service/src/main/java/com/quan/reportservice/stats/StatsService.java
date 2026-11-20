@@ -1,14 +1,18 @@
 package com.quan.reportservice.stats;
 
 import com.quan.reportservice.common.exception.InvalidRequestException;
+import com.quan.reportservice.ingest.DimWallet;
+import com.quan.reportservice.ingest.DimWalletRepository;
 import com.quan.reportservice.ingest.FactTransaction;
 import com.quan.reportservice.ingest.FactTransactionRepository;
+import com.quan.reportservice.stats.dto.CashflowSummaryResponse;
 import com.quan.reportservice.stats.dto.CategoryBreakdownItemResponse;
 import com.quan.reportservice.stats.dto.DailyTransactionGroupResponse;
 import com.quan.reportservice.stats.dto.MonthlyBarPointResponse;
 import com.quan.reportservice.stats.dto.MonthlyTransactionsResponse;
 import com.quan.reportservice.stats.dto.MonthlyTrendResponse;
 import com.quan.reportservice.stats.dto.ReportTransactionItemResponse;
+import com.quan.reportservice.stats.dto.WalletCashflowItemResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -42,6 +46,7 @@ public class StatsService {
     private final AggMonthlySummaryRepository aggMonthlySummaryRepository;
     private final AggMonthlyCategoryRepository aggMonthlyCategoryRepository;
     private final FactTransactionRepository factTransactionRepository;
+    private final DimWalletRepository dimWalletRepository;
 
     @Transactional(readOnly = true)
     public MonthlyTrendResponse getMonthlyTrend(UUID userId,
@@ -203,6 +208,82 @@ public class StatsService {
                 filteredTotalAmount,
                 filteredTxnCount,
                 days
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public CashflowSummaryResponse getCashflowSummary(UUID userId, String period) {
+        YearMonth selectedYm = parseOrCurrentYearMonth(period);
+        LocalDate monthStart = selectedYm.atDay(1);
+
+        List<DimWallet> wallets = dimWalletRepository.findByUserIdAndDeletedFalseOrderByNameAsc(userId);
+        Map<UUID, Long> beforeMap = factTransactionRepository
+                .sumSignedBeforeDateByWallet(userId, monthStart)
+                .stream()
+                .collect(Collectors.toMap(
+                        FactTransactionRepository.WalletSignedSumProjection::getWalletId,
+                        FactTransactionRepository.WalletSignedSumProjection::getSignedTotal
+                ));
+        Map<UUID, FactTransactionRepository.WalletMonthFlowProjection> monthMap = factTransactionRepository
+                .sumMonthFlowByWallet(userId, selectedYm.toString())
+                .stream()
+                .collect(Collectors.toMap(
+                        FactTransactionRepository.WalletMonthFlowProjection::getWalletId,
+                        p -> p
+                ));
+
+        long totalOpening = 0L;
+        long totalIncome = 0L;
+        long totalExpense = 0L;
+        long totalClosing = 0L;
+        List<WalletCashflowItemResponse> items = new ArrayList<>();
+
+        for (DimWallet w : wallets) {
+            long opening = w.getInitialBalance() + beforeMap.getOrDefault(w.getWalletId(), 0L);
+            FactTransactionRepository.WalletMonthFlowProjection mf = monthMap.get(w.getWalletId());
+            long signedInMonth = mf != null ? mf.getSignedTotal() : 0L;
+            long income = mf != null ? mf.getIncomeTotal() : 0L;
+            long expense = mf != null ? mf.getExpenseTotal() : 0L;
+            long txnCount = mf != null ? mf.getTxnCount() : 0L;
+            long closing = opening + signedInMonth;
+            long netFlow = closing - opening;
+
+            if (w.isIncludeInTotal()) {
+                totalOpening += opening;
+                totalIncome += income;
+                totalExpense += expense;
+                totalClosing += closing;
+            }
+
+            if (opening != 0L || closing != 0L || txnCount > 0L) {
+                items.add(new WalletCashflowItemResponse(
+                        w.getWalletId(),
+                        w.getName(),
+                        w.getKind(),
+                        w.getColor() != null ? w.getColor().trim() : null,
+                        null,
+                        opening,
+                        income,
+                        expense,
+                        netFlow,
+                        closing,
+                        w.isIncludeInTotal()
+                ));
+            }
+        }
+
+        items.sort(Comparator.comparingLong((WalletCashflowItemResponse item) -> Math.abs(item.netFlow()))
+                .reversed()
+                .thenComparing(WalletCashflowItemResponse::walletName));
+
+        return new CashflowSummaryResponse(
+                selectedYm.toString(),
+                DEFAULT_CURRENCY,
+                totalOpening,
+                totalIncome,
+                totalExpense,
+                totalClosing,
+                items
         );
     }
 
