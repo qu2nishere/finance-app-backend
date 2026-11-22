@@ -19,4 +19,7 @@ spring.rabbitmq.username=${RABBITMQ_USER:guest}
 spring.rabbitmq.password=${RABBITMQ_PASSWORD:guest}
 app.events.exchange=finance.events
 
+# --- JWT: dung chung secret voi user-service de verify ---
+app.jwt.secret=${JWT_SECRET}
+
 management.endpoints.web.exposure.include=health,info
