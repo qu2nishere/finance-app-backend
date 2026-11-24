@@ -35,7 +35,13 @@ docker compose up --build
 - Từ Android emulator gọi `http://10.0.2.2:8080`; từ máy thật cùng WiFi dùng IP LAN.
 
 Chạy lẻ một service trong IntelliJ: default trong `application.properties` đã trỏ về
-`localhost`, chỉ cần `docker compose up postgres rabbitmq` trước.
+`localhost`, chỉ cần `docker compose up postgres rabbitmq` trước. Secret (`JWT_SECRET`,
+mail, Google) không nằm trong file đó — Spring tự đọc từ `backend/.env`.
+
+## CI
+
+Mỗi PR / push vào `development`, `main` chạy [`.github/workflows/backend-ci.yml`](.github/workflows/backend-ci.yml):
+build + test 4 service (song song, có Postgres + RabbitMQ thật), rồi build 4 Docker image.
 
 ## Quy tắc bắt buộc
 
