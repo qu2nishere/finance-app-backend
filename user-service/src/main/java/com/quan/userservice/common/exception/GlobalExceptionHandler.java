@@ -4,6 +4,7 @@ import com.quan.userservice.auth.exception.EmailAlreadyUsedException;
 import com.quan.userservice.auth.exception.AccountDisabledException;
 import com.quan.userservice.auth.exception.AccountLockedException;
 import com.quan.userservice.auth.exception.InvalidCredentialsException;
+import com.quan.userservice.auth.exception.InvalidOtpException;
 import com.quan.userservice.auth.exception.InvalidRefreshTokenException;
 
 import org.springframework.http.HttpStatus;
@@ -28,7 +29,16 @@ public class GlobalExceptionHandler{
             errors.putIfAbsent(fe.getField(), fe.getDefaultMessage());
         }
         ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Dữ liệu không hợp lệ");
+        pd.setProperty("code", "VALIDATION_FAILED");
         pd.setProperty("errors", errors);
+        return pd;
+    }
+
+    // 400 — ma OTP khong dung / het han / da dung / qua so lan thu / email khong hop le
+    @ExceptionHandler(InvalidOtpException.class)
+    public ProblemDetail handleInvalidOtp(InvalidOtpException ex){
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, ex.getMessage());
+        pd.setProperty("code", "OTP_INVALID");
         return pd;
     }
 
