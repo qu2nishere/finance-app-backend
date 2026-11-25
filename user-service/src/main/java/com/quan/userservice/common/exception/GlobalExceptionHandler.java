@@ -4,6 +4,7 @@ import com.quan.userservice.auth.exception.EmailAlreadyUsedException;
 import com.quan.userservice.auth.exception.AccountDisabledException;
 import com.quan.userservice.auth.exception.AccountLockedException;
 import com.quan.userservice.auth.exception.InvalidCredentialsException;
+import com.quan.userservice.auth.exception.InvalidRefreshTokenException;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -41,6 +42,14 @@ public class GlobalExceptionHandler{
     @ExceptionHandler(InvalidCredentialsException.class)
     public ProblemDetail handleInvalidCredentials(InvalidCredentialsException ex){
         return ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+    }
+
+    // 401 — refresh token sai / het han / da thu hoi
+    @ExceptionHandler(InvalidRefreshTokenException.class)
+    public ProblemDetail handleInvalidRefreshToken(InvalidRefreshTokenException ex){
+        ProblemDetail pd = ProblemDetail.forStatusAndDetail(HttpStatus.UNAUTHORIZED, ex.getMessage());
+        pd.setProperty("code", "TOKEN_INVALID");
+        return pd;
     }
 
     // 423 — tam khoa
