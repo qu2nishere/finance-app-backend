@@ -54,7 +54,8 @@ public class RefreshTokenService {
      */
     @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
     public Session verifyAndConsume(String rawToken) {
-        Session session = sessionRepository.findByRefreshTokenHash(TokenHasher.sha256(rawToken))
+        // Khoa dong de 2 request refresh song song cung 1 token khong cung doc thay revoked_at = null
+        Session session = sessionRepository.findForUpdateByRefreshTokenHash(TokenHasher.sha256(rawToken))
                 .orElseThrow(InvalidRefreshTokenException::new);
 
         Instant now = Instant.now();
@@ -77,7 +78,7 @@ public class RefreshTokenService {
 
     @Transactional
     public void revoke(String rawToken, String reason) {
-        sessionRepository.findByRefreshTokenHash(TokenHasher.sha256(rawToken))
+        sessionRepository.findForUpdateByRefreshTokenHash(TokenHasher.sha256(rawToken))
                 .filter(s -> s.getRevokedAt() == null)
                 .ifPresent(s -> {
                     s.setRevokedAt(Instant.now());

@@ -66,7 +66,7 @@ class RefreshTokenServiceTest {
         active.setRefreshTokenHash(TokenHasher.sha256(rawToken));
         active.setExpiresAt(Instant.now().plus(Duration.ofDays(10)));
 
-        when(sessionRepository.findByRefreshTokenHash(TokenHasher.sha256(rawToken)))
+        when(sessionRepository.findForUpdateByRefreshTokenHash(TokenHasher.sha256(rawToken)))
                 .thenReturn(Optional.of(active));
 
         Session consumed = refreshTokenService.verifyAndConsume(rawToken);
@@ -95,7 +95,7 @@ class RefreshTokenServiceTest {
         activeOther2.setUser(user);
         activeOther2.setExpiresAt(Instant.now().plus(Duration.ofDays(25)));
 
-        when(sessionRepository.findByRefreshTokenHash(TokenHasher.sha256(reusedToken)))
+        when(sessionRepository.findForUpdateByRefreshTokenHash(TokenHasher.sha256(reusedToken)))
                 .thenReturn(Optional.of(rotated));
         when(sessionRepository.findByUserIdAndRevokedAtIsNull(user.getId()))
                 .thenReturn(List.of(activeOther1, activeOther2));
@@ -117,7 +117,7 @@ class RefreshTokenServiceTest {
         expired.setRefreshTokenHash(TokenHasher.sha256(expiredToken));
         expired.setExpiresAt(Instant.now().minusSeconds(5));
 
-        when(sessionRepository.findByRefreshTokenHash(TokenHasher.sha256(expiredToken)))
+        when(sessionRepository.findForUpdateByRefreshTokenHash(TokenHasher.sha256(expiredToken)))
                 .thenReturn(Optional.of(expired));
 
         assertThatThrownBy(() -> refreshTokenService.verifyAndConsume(expiredToken))
@@ -135,7 +135,7 @@ class RefreshTokenServiceTest {
         active.setRefreshTokenHash(TokenHasher.sha256(rawToken));
         active.setExpiresAt(Instant.now().plus(Duration.ofDays(5)));
 
-        when(sessionRepository.findByRefreshTokenHash(TokenHasher.sha256(rawToken)))
+        when(sessionRepository.findForUpdateByRefreshTokenHash(TokenHasher.sha256(rawToken)))
                 .thenReturn(Optional.of(active));
 
         refreshTokenService.revoke(rawToken, "LOGOUT");
