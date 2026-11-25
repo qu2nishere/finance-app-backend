@@ -4,11 +4,13 @@ import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.quan.userservice.auth.dto.AuthResponse;
 import com.quan.userservice.auth.dto.GoogleLoginRequest;
 import com.quan.userservice.auth.dto.LoginRequest;
+import com.quan.userservice.auth.dto.RefreshRequest;
 import com.quan.userservice.auth.dto.RegisterRequest;
 import com.quan.userservice.auth.exception.AccountDisabledException;
 import com.quan.userservice.auth.exception.AccountLockedException;
 import com.quan.userservice.auth.exception.EmailAlreadyUsedException;
 import com.quan.userservice.auth.exception.InvalidCredentialsException;
+import com.quan.userservice.auth.exception.InvalidRefreshTokenException;
 import com.quan.userservice.common.security.JwtService;
 import com.quan.userservice.identity.UserIdentity;
 import com.quan.userservice.identity.UserIdentityRepository;
@@ -38,6 +40,7 @@ public class AuthService{
     private final NotificationSettingsRepository notificationSettingsRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
     private final UserIdentityRepository userIdentityRepository;
     private final GoogleTokenVerifierService googleTokenVerifierService;
 
@@ -177,9 +180,26 @@ public class AuthService{
         return buildAuthResponse(user);
     }
 
+    // noRollbackFor -> van COMMIT REUSE_DETECTED trong RefreshTokenService khi token cu bi dung lai
+    @Transactional(noRollbackFor = InvalidRefreshTokenException.class)
+    public AuthResponse refresh(RefreshRequest request){
+        Session session = refreshTokenService.verifyAndConsume(request.refreshToken());
+        User user = session.getUser();
+        if(user.getStatus() != UserStatus.ACTIVE){
+            throw new AccountDisabledException();
+        }
+        return buildAuthResponse(user);
+    }
+
+    @Transactional
+    public void logout(RefreshRequest request){
+        refreshTokenService.revoke(request.refreshToken(), "LOGOUT");
+    }
+
     private AuthResponse buildAuthResponse(User user){
         return new AuthResponse(
                 jwtService.generateAccessToken(user),
+                refreshTokenService.issue(user),
                 "Bearer",
                 jwtService.getAccessTokenTtlSeconds(),
                 user.getId(),

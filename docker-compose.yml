@@ -51,8 +51,10 @@ services:
       RABBITMQ_USER: ${RABBITMQ_USER:-guest}
       RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD:-guest}
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET chua duoc dat - xem .env.example}
+      ACCESS_TOKEN_TTL: ${ACCESS_TOKEN_TTL:-15m}
       MAIL_USER: ${MAIL_USER:-}
       MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      OTP_DEV_LOG: ${OTP_DEV_LOG:-false}
       GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
     depends_on:
       postgres: { condition: service_healthy }

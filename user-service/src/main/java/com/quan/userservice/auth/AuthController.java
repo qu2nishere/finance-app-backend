@@ -1,9 +1,13 @@
 package com.quan.userservice.auth;
 
 import com.quan.userservice.auth.dto.AuthResponse;
+import com.quan.userservice.auth.dto.ForgotPasswordRequest;
 import com.quan.userservice.auth.dto.GoogleLoginRequest;
 import com.quan.userservice.auth.dto.LoginRequest;
+import com.quan.userservice.auth.dto.RefreshRequest;
 import com.quan.userservice.auth.dto.RegisterRequest;
+import com.quan.userservice.auth.dto.ResetPasswordRequest;
+import com.quan.userservice.auth.dto.VerifyResetCodeRequest;
 
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.*;
 @RequiredArgsConstructor
 public class AuthController{
     private final AuthService authService;
+    private final PasswordResetService passwordResetService;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
@@ -30,5 +35,34 @@ public class AuthController{
     @PostMapping("/google")
     public AuthResponse loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request){
         return authService.loginWithGoogle(request);
+    }
+
+    @PostMapping("/refresh")
+    public AuthResponse refresh(@Valid @RequestBody RefreshRequest request){
+        return authService.refresh(request);
+    }
+
+    @PostMapping("/logout")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void logout(@Valid @RequestBody RefreshRequest request){
+        authService.logout(request);
+    }
+
+    @PostMapping("/forgot-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void forgotPassword(@Valid @RequestBody ForgotPasswordRequest request){
+        passwordResetService.requestReset(request.email());
+    }
+
+    @PostMapping("/reset-password/verify")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void verifyResetCode(@Valid @RequestBody VerifyResetCodeRequest request){
+        passwordResetService.verifyCode(request.email(), request.code());
+    }
+
+    @PostMapping("/reset-password")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void resetPassword(@Valid @RequestBody ResetPasswordRequest request){
+        passwordResetService.resetPassword(request.email(), request.code(), request.newPassword());
     }
 }
