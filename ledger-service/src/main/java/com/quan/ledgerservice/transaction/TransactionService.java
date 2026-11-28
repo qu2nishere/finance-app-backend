@@ -192,6 +192,17 @@ public class TransactionService {
     }
 
     @Transactional(readOnly = true)
+    public TransactionResponse getTransaction(UUID userId, UUID id) {
+        Transaction txn = transactionRepository.findByIdAndUserIdAndDeletedAtIsNull(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch"));
+        Wallet wallet = walletRepository.findByIdAndUserIdAndDeletedAtIsNull(txn.getWalletId(), userId).orElse(null);
+        Category category = txn.getCategoryId() == null ? null :
+                categoryRepository.findByIdAndDeletedAtIsNull(txn.getCategoryId())
+                        .filter(c -> c.getUserId() == null || userId.equals(c.getUserId())).orElse(null);
+        return TransactionResponse.from(txn, wallet, category);
+    }
+
+    @Transactional(readOnly = true)
     public Page<TransactionResponse> getTransactions(UUID userId, Pageable pageable) {
         Page<Transaction> page = transactionRepository.findByUserIdAndDeletedAtIsNullOrderByOccurredAtDesc(userId, pageable);
 

@@ -56,6 +56,11 @@ public class TransactionController {
         return transactionService.getMonthlySummary(userId);
     }
 
+    @GetMapping("/{id}")
+    public TransactionResponse getTransaction(@CurrentUser UUID userId, @PathVariable UUID id) {
+        return transactionService.getTransaction(userId, id);
+    }
+
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void deleteTransaction(

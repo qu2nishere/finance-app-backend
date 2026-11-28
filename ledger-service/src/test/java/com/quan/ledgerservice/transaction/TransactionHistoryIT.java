@@ -18,6 +18,24 @@ class TransactionHistoryIT {
     @Autowired TransactionHistory history;
 
     @Test
+    void detailsRespectIdOwnershipAndSoftDeletion() {
+        UUID owner = UUID.randomUUID();
+        var req = new CreateTransactionRequest(null, null, TransactionType.ADJUSTMENT, 1000,
+                Instant.parse("2026-11-27T17:15:00Z"), null, "Trùng tên");
+        var first = service.create(owner, req);
+        var second = service.create(owner, req);
+        assertThat(service.getTransaction(owner, first.id())).isEqualTo(first);
+        assertThat(service.getTransaction(owner, second.id())).isEqualTo(second);
+        assertThat(first.categoryId()).isNull();
+        assertThat(first.id()).isNotEqualTo(second.id());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getTransaction(UUID.randomUUID(), first.id()))
+                .isInstanceOf(com.quan.ledgerservice.common.exception.ResourceNotFoundException.class);
+        service.delete(owner, first.id());
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.getTransaction(owner, first.id()))
+                .isInstanceOf(com.quan.ledgerservice.common.exception.ResourceNotFoundException.class);
+    }
+
+    @Test
     void filtersBeforePagingAndTotalsAndScopesRowsToTheOwner() {
         UUID owner = UUID.randomUUID();
         var request = new CreateTransactionRequest(null, null, TransactionType.EXPENSE, 1000L,
