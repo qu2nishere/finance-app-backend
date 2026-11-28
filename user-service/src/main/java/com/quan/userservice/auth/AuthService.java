@@ -19,6 +19,7 @@ import com.quan.userservice.settings.NotificationSettingsRepository;
 import com.quan.userservice.settings.UserSettings;
 import com.quan.userservice.settings.UserSettingsRepository;
 import com.quan.userservice.user.User;
+import com.quan.userservice.user.AccountTimezone;
 import com.quan.userservice.user.UserRepository;
 import com.quan.userservice.user.UserStatus;
 import lombok.RequiredArgsConstructor;
@@ -62,6 +63,7 @@ public class AuthService{
         //Gọi User repo lưu vào bảng User
         User user = new User();
         user.setEmail(email);
+        if (request.timezone() != null) user.setTimezone(AccountTimezone.validate(request.timezone()));
         user.setFullName(request.fullName().trim());
         userRepository.save(user);
 
@@ -145,6 +147,7 @@ public class AuthService{
                 user = new User();
                 user.setEmail(email);
                 user.setFullName(fullName != null && !fullName.isBlank() ? fullName.trim() : "User");
+                if (request.timezone() != null) user.setTimezone(AccountTimezone.validate(request.timezone()));
                 user.setAvatarUrl(avatarUrl);
                 user.setEmailVerified(true);
                 user.setEmailVerifiedAt(Instant.now());
@@ -204,6 +207,7 @@ public class AuthService{
                 jwtService.getAccessTokenTtlSeconds(),
                 user.getId(),
                 user.getEmail(),
-                user.getFullName());
+                user.getFullName(),
+                user.getTimezone());
     }
 }

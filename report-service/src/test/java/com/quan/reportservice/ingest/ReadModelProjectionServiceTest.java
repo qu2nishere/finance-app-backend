@@ -9,6 +9,8 @@ import com.quan.reportservice.stats.AggMonthlySummary;
 import com.quan.reportservice.stats.AggMonthlySummaryRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -278,6 +280,33 @@ class ReadModelProjectionServiceTest {
         assertThat(processedIds).doesNotContain(eventId);
         assertThat(facts).isEmpty();
         assertThat(summaries).isEmpty();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "America/Los_Angeles,,2026-11-30",
+            "Asia/Ho_Chi_Minh,,2026-12-01",
+            "Unknown/Zone,,2026-12-01",
+            "Asia/Ho_Chi_Minh,2026-11-30,2026-11-30"
+    })
+    void projectsStoredDateOrUsesEventZoneAtMonthBoundary(String zone, String storedDate, LocalDate expected) {
+        UUID userId = UUID.randomUUID();
+        UUID txnId = UUID.randomUUID();
+        var payload = mapper.createObjectNode();
+        payload.put("transactionId", txnId.toString());
+        payload.put("walletId", UUID.randomUUID().toString());
+        payload.put("type", "EXPENSE");
+        payload.put("amount", 1700);
+        payload.put("signedAmount", -1700);
+        payload.put("currencyCode", "VND");
+        payload.put("occurredAt", "2026-11-30T17:15:00Z");
+        payload.put("timezone", zone);
+        if (storedDate != null) payload.put("occurredDate", storedDate);
+
+        service.processEvent(UUID.randomUUID(), "TransactionCreated", userId, txnId, payload);
+
+        assertThat(facts.get(txnId).getOccurredDate()).isEqualTo(expected);
+        assertThat(summaries.get(java.time.YearMonth.from(expected).toString()).getTotalExpense()).isEqualTo(1700L);
     }
 
     @Test

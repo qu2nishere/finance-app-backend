@@ -22,7 +22,11 @@ class JwtServiceTest {
 
         String token = jwtService.generateAccessToken(user);
 
-        System.out.println("TOKEN = " + token);
+        user.setTimezone("America/Los_Angeles");
+        var originalExpiry = jwtService.verifiedClaims(token).getExpiration();
+        var replacement = jwtService.verifiedClaims(jwtService.generateAccessToken(user, originalExpiry.toInstant()));
+        assertThat(replacement.get("tz")).isEqualTo("America/Los_Angeles");
+        assertThat(replacement.getExpiration()).isEqualTo(originalExpiry);
 
         assertThat(jwtService.isTokenValid(token)).isTrue();
         assertThat(jwtService.extractUserId(token)).isEqualTo(user.getId());

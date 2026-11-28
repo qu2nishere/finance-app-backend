@@ -1,5 +1,7 @@
 package com.quan.budgetservice.budget;
 
+import com.quan.budgetservice.common.security.AccountZone;
+
 import com.quan.budgetservice.budget.dto.CategoryLimitResponse;
 import com.quan.budgetservice.budget.dto.CreateLimitRequest;
 import com.quan.budgetservice.budget.dto.CurrentBudgetResponse;
@@ -33,7 +35,7 @@ public class BudgetService {
     public CurrentBudgetResponse getCurrent(UUID userId, String periodParam) {
         String periodKey = resolvePeriodKey(periodParam);
         PeriodUtils.DateRange range = PeriodUtils.range(periodKey);
-        int daysLeft = PeriodUtils.daysLeft(range, LocalDate.now(PeriodUtils.USER_ZONE));
+        int daysLeft = PeriodUtils.daysLeft(range, LocalDate.now(AccountZone.current()));
 
         Budget budget = budgetRepository
                 .findByUserIdAndPeriodTypeAndPeriodKeyAndDeletedAtIsNull(userId, PeriodType.MONTH, periodKey)

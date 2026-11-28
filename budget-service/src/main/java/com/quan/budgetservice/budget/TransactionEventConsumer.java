@@ -1,5 +1,7 @@
 package com.quan.budgetservice.budget;
 
+import com.quan.budgetservice.common.security.AccountZone;
+
 import com.quan.budgetservice.common.config.RabbitConfig;
 import com.quan.budgetservice.common.event.ProcessedEvent;
 import com.quan.budgetservice.common.event.ProcessedEventRepository;
@@ -96,10 +98,11 @@ public class TransactionEventConsumer {
         if (dateText != null) {
             return LocalDate.parse(dateText);
         }
+        var zone = AccountZone.fromClaim(optionalString(payload, "timezone"));
         if (occurredAt != null) {
-            return LocalDate.ofInstant(occurredAt, PeriodUtils.USER_ZONE);
+            return LocalDate.ofInstant(occurredAt, zone);
         }
-        return LocalDate.now(PeriodUtils.USER_ZONE);
+        return LocalDate.now(zone);
     }
 
     private static String optionalString(JsonNode node, String field) {

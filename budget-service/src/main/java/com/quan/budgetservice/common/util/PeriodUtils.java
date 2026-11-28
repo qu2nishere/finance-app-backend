@@ -1,10 +1,11 @@
 package com.quan.budgetservice.common.util;
 
+import com.quan.budgetservice.common.security.AccountZone;
+
 import com.quan.budgetservice.common.exception.InvalidRequestException;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.ChronoUnit;
@@ -12,7 +13,6 @@ import java.util.regex.Pattern;
 
 public final class PeriodUtils {
 
-    public static final ZoneId USER_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     private static final DateTimeFormatter PERIOD_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM");
     private static final Pattern PERIOD_PATTERN = Pattern.compile("^\\d{4}-(0[1-9]|1[0-2])$");
@@ -31,7 +31,7 @@ public final class PeriodUtils {
     }
 
     public static String currentPeriodKey() {
-        return periodKey(LocalDate.now(USER_ZONE));
+        return periodKey(LocalDate.now(AccountZone.current()));
     }
 
     public static DateRange range(String periodKey) {

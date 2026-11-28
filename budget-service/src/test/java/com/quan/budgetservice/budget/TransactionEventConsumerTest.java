@@ -4,6 +4,8 @@ import com.quan.budgetservice.common.event.ProcessedEvent;
 import com.quan.budgetservice.common.event.ProcessedEventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -69,6 +71,24 @@ class TransactionEventConsumerTest {
         verify(spendingSnapshotRepository, times(1)).upsertDelta(
                 userId, "2026-11", categoryId, 500_000L, 1, Instant.parse("2026-11-22T10:00:00Z")
         );
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "America/Los_Angeles,2026-11", "Asia/Ho_Chi_Minh,2026-12", "Unknown/Zone,2026-12"
+    })
+    void legacyEventWithoutBusinessDateUsesItsZoneAtMonthBoundary(String zone, String expectedPeriod) {
+        UUID userId = UUID.randomUUID();
+        UUID categoryId = UUID.randomUUID();
+        Instant instant = Instant.parse("2026-11-30T17:15:00Z");
+        String message = """
+                {"eventId":"%s","eventType":"TransactionCreated","userId":"%s",
+                 "payload":{"categoryId":"%s","type":"EXPENSE","amount":1700,
+                            "occurredAt":"%s","timezone":"%s"}}
+                """.formatted(UUID.randomUUID(), userId, categoryId, instant, zone);
+        consumer.onMessage(message);
+
+        verify(spendingSnapshotRepository).upsertDelta(userId, expectedPeriod, categoryId, 1700L, 1, instant);
     }
 
     @Test

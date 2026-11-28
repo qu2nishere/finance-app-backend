@@ -1,5 +1,7 @@
 package com.quan.ledgerservice.transaction;
 
+import com.quan.ledgerservice.common.security.AccountZone;
+
 import com.quan.ledgerservice.category.Category;
 import com.quan.ledgerservice.category.CategoryFlow;
 import com.quan.ledgerservice.category.CategoryRepository;
@@ -20,7 +22,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -36,7 +37,6 @@ public class TransactionService {
     private final CategoryRepository categoryRepository;
     private final EventPublisher eventPublisher;
 
-    private static final ZoneId USER_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
 
     @Transactional
     public TransactionResponse create(UUID userId, CreateTransactionRequest request) {
@@ -110,7 +110,7 @@ public class TransactionService {
         txn.setSignedAmount(signedAmount);
         txn.setCurrencyCode(wallet.getCurrencyCode());
         txn.setOccurredAt(request.occurredAt());
-        txn.setOccurredDate(LocalDate.ofInstant(request.occurredAt(), USER_ZONE));
+        txn.setOccurredDate(LocalDate.ofInstant(request.occurredAt(), AccountZone.current()));
         txn.setNote(request.note());
         txn.setMerchant(request.merchant());
 
@@ -148,6 +148,7 @@ public class TransactionService {
                         saved.getCurrencyCode() != null ? saved.getCurrencyCode().trim() : "VND",
                         saved.getOccurredAt(),
                         saved.getOccurredDate(),
+                        AccountZone.current().getId(),
                         saved.getMerchant(),
                         saved.getNote(),
                         saved.getSource(),
@@ -185,6 +186,7 @@ public class TransactionService {
                         txn.getSignedAmount(),
                         txn.getOccurredAt(),
                         txn.getOccurredDate(),
+                        AccountZone.current().getId(),
                         txn.isExcludedFromReport()
                 )
         );
@@ -220,7 +222,7 @@ public class TransactionService {
 
     @Transactional(readOnly = true)
     public MonthlySummaryResponse getMonthlySummary(UUID userId) {
-        YearMonth currentMonth = YearMonth.now(USER_ZONE);
+        YearMonth currentMonth = YearMonth.now(AccountZone.current());
         LocalDate start = currentMonth.atDay(1);
         LocalDate end = currentMonth.atEndOfMonth();
 

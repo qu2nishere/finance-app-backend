@@ -1,5 +1,6 @@
 package com.quan.ledgerservice.common.security;
 
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -28,14 +29,18 @@ public class JwtAuthFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             String token = authHeader.substring(7);
-            if (jwtService.isTokenValid(token)) {
-                UUID userId = jwtService.extractUserId(token);
+            try {
+                var claims = jwtService.verify(token);
+                UUID userId = UUID.fromString(claims.getSubject());
                 UsernamePasswordAuthenticationToken authentication = new UsernamePasswordAuthenticationToken(
                         userId,
                         null,
                         Collections.singletonList(new SimpleGrantedAuthority("ROLE_USER"))
                 );
+                authentication.setDetails(AccountZone.fromClaim(claims.get("tz")));
                 SecurityContextHolder.getContext().setAuthentication(authentication);
+            } catch (JwtException | IllegalArgumentException ignored) {
+                SecurityContextHolder.clearContext();
             }
         }
         filterChain.doFilter(request, response);

@@ -1,5 +1,7 @@
 package com.quan.reportservice.ingest;
 
+import com.quan.reportservice.common.security.AccountZone;
+
 import com.quan.reportservice.stats.AggDaily;
 import com.quan.reportservice.stats.AggDailyRepository;
 import com.quan.reportservice.stats.AggMonthlyCategory;
@@ -136,8 +138,11 @@ public class ReadModelProjectionService {
     private void handleTransactionCreated(UUID envelopeUserId, JsonNode payload) {
         UUID txnId = requiredUuid(payload, "transactionId");
         UUID userId = envelopeUserId != null ? envelopeUserId : requiredUuid(payload, "userId");
-        LocalDate occurredDate = LocalDate.parse(requiredText(payload, "occurredDate"));
         Instant occurredAt = Instant.parse(requiredText(payload, "occurredAt"));
+        String storedDate = optionalText(payload, "occurredDate");
+        LocalDate occurredDate = storedDate == null
+                ? LocalDate.ofInstant(occurredAt, AccountZone.fromClaim(optionalText(payload, "timezone")))
+                : LocalDate.parse(storedDate);
         YearMonth ym = YearMonth.from(occurredDate);
 
         FactTransaction fact = factTransactionRepository.findById(txnId).orElseGet(FactTransaction::new);
@@ -203,10 +208,12 @@ public class ReadModelProjectionService {
         }
 
         String dateStr = optionalText(payload, "occurredDate");
+        String instant = optionalText(payload, "occurredAt");
         String type = optionalText(payload, "type");
         boolean excluded = payload.path("isExcludedFromReport").asBoolean(false);
-        if (dateStr != null && !excluded && isReportableFlow(type)) {
-            LocalDate date = LocalDate.parse(dateStr);
+        if ((dateStr != null || instant != null) && !excluded && isReportableFlow(type)) {
+            LocalDate date = dateStr != null ? LocalDate.parse(dateStr)
+                    : LocalDate.ofInstant(Instant.parse(instant), AccountZone.fromClaim(optionalText(payload, "timezone")));
             YearMonth ym = YearMonth.from(date);
             recomputeDaily(userId, date);
             recomputeMonth(userId, ym);
