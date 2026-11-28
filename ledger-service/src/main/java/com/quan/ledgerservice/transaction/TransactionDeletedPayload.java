@@ -14,6 +14,7 @@ public record TransactionDeletedPayload(
         long signedAmount,
         Instant occurredAt,
         LocalDate occurredDate,
+        String timezone,
         boolean isExcludedFromReport
 ) {
 }

@@ -234,7 +234,7 @@ CurrencySettings, NotificationSettings, Notifications, BackupSync, DeleteData.
 | `plan` | VARCHAR(20) | ✗ | `'FREE'` | `FREE` `PLUS` — AccountScreen "Gói miễn phí" |
 | `plan_expires_at` | TIMESTAMPTZ | ✓ | | |
 | `locale` | VARCHAR(10) | ✗ | `'vi-VN'` | ProfileScreen → Ngôn ngữ |
-| `timezone` | VARCHAR(50) | ✗ | `'Asia/Ho_Chi_Minh'` | Ranh giới ngày/tháng của báo cáo |
+| `timezone` | VARCHAR(50) | ✗ | `'Asia/Ho_Chi_Minh'` | Múi giờ IANA của tài khoản. Token mang claim `tz`, ledger tính `occurred_date` khi ghi. Đổi múi giờ giữ nguyên các ngày đã lưu. |
 | `onboarding_completed` | BOOLEAN | ✗ | `false` | Register 3 bước xong chưa |
 | `last_login_at` | TIMESTAMPTZ | ✓ | | |
 | `created_at` / `updated_at` / `deleted_at` | TIMESTAMPTZ | | | chuẩn chung |
@@ -1376,7 +1376,7 @@ Exchange: `finance.events` (topic) — đã cấu hình sẵn qua `app.events.ex
 | `user.deleted` | user | tất cả | `userId` |
 | `transaction.created` | ledger | budget, report | xem bên dưới |
 | `transaction.updated` | ledger | budget, report | như trên + `previousAmount`, `previousCategoryId` |
-| `transaction.deleted` | ledger | budget, report | `transactionId`, `userId`, `walletId`, `categoryId`, `type`, `amount`, `signedAmount`, `occurredAt`, `occurredDate`, `isExcludedFromReport` |
+| `transaction.deleted` | ledger | budget, report | `transactionId`, `userId`, `walletId`, `categoryId`, `type`, `amount`, `signedAmount`, `occurredAt`, `occurredDate`, `timezone`, `isExcludedFromReport` |
 | `wallet.created` / `wallet.updated` | ledger | report | `walletId`, `name`, `kind`, `color`, `initialBalance`, `currencyCode`, `includeInTotal`, `createdAt` |
 | `wallet.balance.changed` | ledger | budget, report | `walletId`, `userId`, `newBalance`, `delta`, `changedAt` |
 | `category.created` / `category.updated` | ledger | budget, report | `categoryId`, `userId`, `name`, `flow`, `icon`, `color`, `parentId` |
@@ -1404,6 +1404,8 @@ Exchange: `finance.events` (topic) — đã cấu hình sẵn qua `app.events.ex
 `eventId` là khoá idempotency — consumer `INSERT INTO processed_events (event_id)` trước,
 gặp lỗi trùng khoá thì bỏ qua event. Đây là lý do consumer **an toàn khi RabbitMQ gửi lại**.
 
+`timezone` là múi giờ của tài khoản khi phát sự kiện tạo hoặc xoá. Consumer ưu tiên `occurredDate` đã lưu. Với sự kiện cũ thiếu ngày, consumer quy đổi `occurredAt` theo `timezone`, mặc định `Asia/Ho_Chi_Minh` nếu thiếu hoặc sai múi giờ.
+
 ### `TransactionCreated.payload`
 
 ```json
@@ -1416,6 +1418,7 @@ gặp lỗi trùng khoá thì bỏ qua event. Đây là lý do consumer **an to�
   "type": "EXPENSE",
   "amount": 72000, "signedAmount": -72000, "currencyCode": "VND",
   "occurredAt": "2026-08-22T09:12:00Z", "occurredDate": "2026-08-22",
+  "timezone": "Asia/Ho_Chi_Minh",
   "merchant": "Highlands Coffee", "note": "Cà phê sáng với team dự án",
   "source": "NOTIFICATION", "isExcludedFromReport": false
 }
@@ -1428,6 +1431,7 @@ gặp lỗi trùng khoá thì bỏ qua event. Đây là lý do consumer **an to�
   "transactionId": "…", "userId": "…", "walletId": "…", "categoryId": "…",
   "type": "EXPENSE", "amount": 72000, "signedAmount": -72000,
   "occurredAt": "2026-08-22T09:12:00Z", "occurredDate": "2026-08-22",
+  "timezone": "Asia/Ho_Chi_Minh",
   "isExcludedFromReport": false
 }
 ```

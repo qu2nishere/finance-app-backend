@@ -13,6 +13,12 @@ import com.quan.ledgerservice.wallet.WalletKind;
 import com.quan.ledgerservice.wallet.WalletRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import com.quan.ledgerservice.common.security.AccountZone;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
@@ -61,8 +67,23 @@ class TransactionServiceOutboxTest {
         );
     }
 
-    @Test
-    void create_withCategoryAndParent_savesOutboxEventWithFullEnvelope() {
+    @AfterEach
+    void clearContext() {
+        SecurityContextHolder.clearContext();
+    }
+
+    @ParameterizedTest
+    @CsvSource({
+            "Asia/Ho_Chi_Minh,2026-11-28",
+            "America/Los_Angeles,2026-11-27",
+            ",2026-11-28",
+            "Invalid/Zone,2026-11-28",
+            "+00:00,2026-11-28"
+    })
+    void create_withCategoryAndParent_savesOutboxEventWithFullEnvelope(String claim, String date) {
+        var authentication = new UsernamePasswordAuthenticationToken(UUID.randomUUID(), null);
+        authentication.setDetails(AccountZone.fromClaim(claim));
+        SecurityContextHolder.getContext().setAuthentication(authentication);
         UUID userId = UUID.randomUUID();
         UUID walletId = UUID.randomUUID();
         UUID parentCatId = UUID.randomUUID();
@@ -107,7 +128,7 @@ class TransactionServiceOutboxTest {
                 catId,
                 TransactionType.EXPENSE,
                 72_000L,
-                Instant.parse("2026-11-18T02:15:00Z"),
+                Instant.parse("2026-11-27T17:15:00Z"),
                 "Họp nhóm sáng",
                 "Highlands Coffee"
         );
@@ -142,7 +163,8 @@ class TransactionServiceOutboxTest {
         assertThat(payload.path("type").asString()).isEqualTo("EXPENSE");
         assertThat(payload.path("amount").asLong()).isEqualTo(72_000L);
         assertThat(payload.path("signedAmount").asLong()).isEqualTo(-72_000L);
-        assertThat(payload.path("occurredDate").asString()).isEqualTo("2026-11-18");
+        assertThat(payload.path("occurredDate").asString()).isEqualTo(date);
+        assertThat(payload.path("timezone").asString()).isEqualTo(AccountZone.current().getId());
         assertThat(payload.path("merchant").asString()).isEqualTo("Highlands Coffee");
         assertThat(payload.path("note").asString()).isEqualTo("Họp nhóm sáng");
         assertThat(payload.path("source").asString()).isEqualTo("MANUAL");

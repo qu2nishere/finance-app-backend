@@ -25,6 +25,7 @@ public record TransactionCreatedPayload(
         String currencyCode,
         Instant occurredAt,
         LocalDate occurredDate,
+        String timezone,
         String merchant,
         String note,
         TransactionSource source,
