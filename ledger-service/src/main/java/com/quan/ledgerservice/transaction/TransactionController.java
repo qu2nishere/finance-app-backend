@@ -13,6 +13,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.UUID;
+import java.time.LocalDate;
+import com.quan.ledgerservice.transaction.dto.TransactionHistoryPage;
 
 @RestController
 @RequestMapping("/api/transactions")
@@ -20,6 +22,17 @@ import java.util.UUID;
 public class TransactionController {
 
     private final TransactionService transactionService;
+
+    private final TransactionHistory history;
+
+    @GetMapping("/history")
+    public TransactionHistoryPage getHistory(@CurrentUser UUID userId,
+            @RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) LocalDate from, @RequestParam(required = false) LocalDate to,
+            @RequestParam(required = false) UUID walletId, @RequestParam(required = false) UUID categoryId,
+            @RequestParam(required = false) TransactionType type, @RequestParam(required = false) String q) {
+        return history.search(userId, page, size, from, to, walletId, categoryId, type, q);
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
