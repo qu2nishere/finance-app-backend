@@ -28,23 +28,31 @@ public class JwtService{
     }
 
     public String generateAccessToken(User user){
+        return generateAccessToken(user, Instant.now().plus(accessTokenTtl));
+    }
+
+    public String generateAccessToken(User user, Instant expiresAt) {
         Instant now = Instant.now();
         return Jwts.builder()
                 .subject(user.getId().toString())
                 .claim("email", user.getEmail())
+                .claim("tz", user.getTimezone())
                 .issuedAt(Date.from(now))
-                .expiration(Date.from(now.plus(accessTokenTtl)))
+                .expiration(Date.from(expiresAt))
                 .signWith(key)
                 .compact();
     }
 
     public UUID extractUserId(String token){
-        Claims claims = Jwts.parser()
+        return UUID.fromString(verifiedClaims(token).getSubject());
+    }
+
+    Claims verifiedClaims(String token) {
+        return Jwts.parser()
             .verifyWith(key)
             .build()
             .parseSignedClaims(token)
             .getPayload();
-        return UUID.fromString(claims.getSubject());
     }
 
     public boolean isTokenValid(String token){

@@ -9,5 +9,6 @@ public record AuthResponse(
     long expiresIn,
     UUID userId,
     String email,
-    String fullName
+    String fullName,
+    String timezone
 ){   }
