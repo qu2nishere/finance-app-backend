@@ -43,15 +43,14 @@ public class TransactionService {
         // 1. Ví: tìm theo walletId của user, nếu chưa có thì lấy ví đầu tiên hoặc tự tạo ví mặc định "Tiền mặt"
         Wallet wallet = null;
         if (request.walletId() != null) {
-            wallet = walletRepository.findByIdAndUserIdAndDeletedAtIsNull(request.walletId(), userId)
+            wallet = walletRepository.lockActive(request.walletId(), userId)
                     .orElse(null);
         }
 
         if (wallet == null) {
-            List<Wallet> userWallets = walletRepository.findByUserIdAndDeletedAtIsNullOrderByDisplayOrderAsc(userId);
-            if (!userWallets.isEmpty()) {
-                wallet = userWallets.get(0);
-            } else {
+            walletRepository.lockDefaultWallet(userId);
+            wallet = walletRepository.findFirstByUserIdAndDeletedAtIsNullOrderByDisplayOrderAscIdAsc(userId).orElse(null);
+            if (wallet == null) {
                 Wallet defaultWallet = new Wallet();
                 defaultWallet.setUserId(userId);
                 defaultWallet.setName("Tiền mặt");
@@ -161,10 +160,10 @@ public class TransactionService {
 
     @Transactional
     public void delete(UUID userId, UUID txnId) {
-        Transaction txn = transactionRepository.findByIdAndUserIdAndDeletedAtIsNull(txnId, userId)
+        Transaction txn = transactionRepository.lockActive(txnId, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy giao dịch"));
 
-        Wallet wallet = walletRepository.findByIdAndUserIdAndDeletedAtIsNull(txn.getWalletId(), userId)
+        Wallet wallet = walletRepository.lockActive(txn.getWalletId(), userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Không tìm thấy ví tương ứng"));
 
         // Hoàn lại số dư ví

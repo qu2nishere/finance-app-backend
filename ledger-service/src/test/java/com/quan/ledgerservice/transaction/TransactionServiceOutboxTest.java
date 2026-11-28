@@ -90,7 +90,7 @@ class TransactionServiceOutboxTest {
         category.setIcon("LocalCafe");
         category.setColor("#EF4444");
 
-        when(walletRepository.findByIdAndUserIdAndDeletedAtIsNull(walletId, userId))
+        when(walletRepository.lockActive(walletId, userId))
                 .thenReturn(Optional.of(wallet));
         when(categoryRepository.findByIdAndDeletedAtIsNull(catId))
                 .thenReturn(Optional.of(category));
@@ -161,7 +161,7 @@ class TransactionServiceOutboxTest {
         wallet.setKind(WalletKind.CASH);
         wallet.setCurrencyCode("VND");
 
-        when(walletRepository.findByIdAndUserIdAndDeletedAtIsNull(walletId, userId))
+        when(walletRepository.lockActive(walletId, userId))
                 .thenReturn(Optional.of(wallet));
         when(categoryRepository.findVisible(userId)).thenReturn(Collections.emptyList());
         when(transactionRepository.save(any(Transaction.class))).thenAnswer(inv -> {
@@ -204,7 +204,7 @@ class TransactionServiceOutboxTest {
         wallet.setKind(WalletKind.CASH);
         wallet.setCurrencyCode("VND");
 
-        when(walletRepository.findByIdAndUserIdAndDeletedAtIsNull(walletId, userId))
+        when(walletRepository.lockActive(walletId, userId))
                 .thenReturn(Optional.of(wallet));
         when(categoryRepository.findVisible(userId)).thenReturn(Collections.emptyList());
         when(transactionRepository.save(any(Transaction.class)))
@@ -249,9 +249,9 @@ class TransactionServiceOutboxTest {
         txn.setOccurredAt(Instant.parse("2026-11-18T05:00:00Z"));
         txn.setOccurredDate(LocalDate.of(2026, 11, 18));
 
-        when(transactionRepository.findByIdAndUserIdAndDeletedAtIsNull(txnId, userId))
+        when(transactionRepository.lockActive(txnId, userId))
                 .thenReturn(Optional.of(txn));
-        when(walletRepository.findByIdAndUserIdAndDeletedAtIsNull(walletId, userId))
+        when(walletRepository.lockActive(walletId, userId))
                 .thenReturn(Optional.of(wallet));
 
         transactionService.delete(userId, txnId);
@@ -281,9 +281,9 @@ class TransactionServiceOutboxTest {
         txn.setUserId(userId);
         txn.setWalletId(walletId);
 
-        when(transactionRepository.findByIdAndUserIdAndDeletedAtIsNull(txnId, userId))
+        when(transactionRepository.lockActive(txnId, userId))
                 .thenReturn(Optional.of(txn));
-        when(walletRepository.findByIdAndUserIdAndDeletedAtIsNull(walletId, userId))
+        when(walletRepository.lockActive(walletId, userId))
                 .thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> transactionService.delete(userId, txnId))

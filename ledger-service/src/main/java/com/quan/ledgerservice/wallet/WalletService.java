@@ -21,6 +21,10 @@ public class WalletService {
     public List<WalletResponse> getWallets(UUID userId) {
         List<Wallet> wallets = walletRepository.findByUserIdAndDeletedAtIsNullOrderByDisplayOrderAsc(userId);
         if (wallets.isEmpty()) {
+            walletRepository.lockDefaultWallet(userId);
+            wallets = walletRepository.findByUserIdAndDeletedAtIsNullOrderByDisplayOrderAsc(userId);
+        }
+        if (wallets.isEmpty()) {
             // Khởi tạo ví mặc định "Tiền mặt" cho user mới
             Wallet defaultWallet = new Wallet();
             defaultWallet.setUserId(userId);

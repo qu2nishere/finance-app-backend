@@ -19,6 +19,10 @@ public interface TransactionRepository extends JpaRepository<Transaction, UUID> 
 
     Optional<Transaction> findByIdAndUserIdAndDeletedAtIsNull(UUID id, UUID userId);
 
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("select t from Transaction t where t.id = :id and t.userId = :userId and t.deletedAt is null")
+    Optional<Transaction> lockActive(UUID id, UUID userId);
+
     @Query("""
            select coalesce(sum(t.amount), 0) from Transaction t
            where t.userId = :userId
