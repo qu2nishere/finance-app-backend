@@ -1,5 +1,7 @@
 package com.quan.budgetservice.goal;
 
+import com.quan.budgetservice.common.security.AccountZone;
+
 import com.quan.budgetservice.common.exception.InvalidRequestException;
 import com.quan.budgetservice.common.exception.NotFoundException;
 import com.quan.budgetservice.common.util.PeriodUtils;
@@ -42,7 +44,7 @@ public class GoalService {
 
     @Transactional
     public GoalResponse create(UUID userId, CreateGoalRequest request) {
-        LocalDate startDate = LocalDate.now(PeriodUtils.USER_ZONE);
+        LocalDate startDate = LocalDate.now(AccountZone.current());
         validateTargetDate(request.targetDate(), startDate);
 
         SavingsGoal goal = new SavingsGoal();

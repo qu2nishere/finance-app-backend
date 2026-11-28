@@ -1,5 +1,7 @@
 package com.quan.reportservice.stats;
 
+import com.quan.reportservice.common.security.AccountZone;
+
 import com.quan.reportservice.common.exception.InvalidRequestException;
 import com.quan.reportservice.ingest.DimWallet;
 import com.quan.reportservice.ingest.DimWalletRepository;
@@ -22,7 +24,6 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -40,7 +41,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class StatsService {
 
-    private static final ZoneId DEFAULT_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final String DEFAULT_CURRENCY = "VND";
     private static final int MIN_MONTHS = 1;
     private static final int MAX_MONTHS = 12;
@@ -424,7 +424,7 @@ public class StatsService {
 
     private static YearMonth parseOrCurrentYearMonth(String period) {
         if (period == null || period.isBlank()) {
-            return YearMonth.now(DEFAULT_ZONE);
+            return YearMonth.now(AccountZone.current());
         }
         try {
             return YearMonth.parse(period.trim());
@@ -440,7 +440,7 @@ public class StatsService {
         if (date != null) {
             return YearMonth.from(date);
         }
-        return YearMonth.now(DEFAULT_ZONE);
+        return YearMonth.now(AccountZone.current());
     }
 
     private static String normalizeRequiredFlow(String rawType, String defaultFlow) {

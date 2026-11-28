@@ -1,6 +1,5 @@
 package com.quan.budgetservice.goal;
 
-import com.quan.budgetservice.common.util.PeriodUtils;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -52,7 +51,7 @@ public class SavingsGoal {
     private long savedAmount = 0L;
 
     @Column(name = "start_date", nullable = false)
-    private LocalDate startDate = LocalDate.now(PeriodUtils.USER_ZONE);
+    private LocalDate startDate;
 
     @Column(name = "target_date")
     private LocalDate targetDate;
